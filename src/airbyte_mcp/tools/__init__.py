@@ -12,9 +12,13 @@ def register_all(mcp: FastMCP) -> None:
     """Import every tool module so their @mcp.tool decorators execute."""
     from airbyte_mcp.tools import (  # noqa: F401
         connections,
+        definitions,
         destinations,
         health,
+        job_logs,
         jobs,
         sources,
+        streams,
+        tags,
         workspaces,
     )

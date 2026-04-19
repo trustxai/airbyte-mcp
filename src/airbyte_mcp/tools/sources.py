@@ -42,6 +42,45 @@ class GetSourceInput(BaseModel):
     response_format: ResponseFormat = Field(default=ResponseFormat.MARKDOWN)
 
 
+class CreateSourceInput(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    name: str = Field(..., min_length=1, description="Human-readable name for the source.")
+    workspace_id: str = Field(..., min_length=1, description="UUID of the workspace to own the source.")
+    definition_id: str | None = Field(
+        default=None,
+        description="UUID of the source connector definition. Provide this OR set sourceType inside configuration.",
+    )
+    configuration: dict[str, Any] = Field(
+        ...,
+        description=(
+            "Connector-specific configuration object (JSON). Each source type has its own schema. "
+            "Use airbyte_get_source on an existing source of the same type to see the structure, "
+            "or airbyte_list_source_definitions to discover available connector types."
+        ),
+    )
+    secret_id: str | None = Field(
+        default=None,
+        description="Optional secret ID obtained through the OAuth redirect flow.",
+    )
+    response_format: ResponseFormat = Field(default=ResponseFormat.MARKDOWN)
+
+
+class UpdateSourceInput(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    source_id: str = Field(..., min_length=1, description="UUID of the source to update.")
+    name: str | None = Field(default=None, description="New name for the source.")
+    configuration: dict[str, Any] | None = Field(
+        default=None,
+        description=(
+            "Updated connector configuration (JSON). Only include fields you want to change. "
+            "Call airbyte_get_source first to see the current configuration."
+        ),
+    )
+    response_format: ResponseFormat = Field(default=ResponseFormat.MARKDOWN)
+
+
 # ---------------------------------------------------------------------------
 # Formatters
 # ---------------------------------------------------------------------------
@@ -178,6 +217,128 @@ async def airbyte_get_source(params: GetSourceInput) -> str:
     try:
         client = get_client()
         resp = await client.request("GET", f"/sources/{params.source_id}")
+        data = resp.json()
+        if params.response_format == ResponseFormat.JSON:
+            return to_json(data)
+        return _fmt_source(data)
+    except Exception as exc:
+        return handle_api_error(exc)
+
+
+@mcp.tool(
+    name="airbyte_create_source",
+    annotations=ToolAnnotations(
+        title="Create Airbyte Source",
+        readOnlyHint=False,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    ),
+)
+async def airbyte_create_source(params: CreateSourceInput) -> str:
+    """Create a new source connector in Airbyte.
+
+    A source defines where Airbyte reads data from (a database, API,
+    SaaS app, etc.). Each source type requires its own configuration
+    schema (e.g. host, port, credentials for Postgres).
+
+    When to Use:
+        - Set up a brand-new data source inside a workspace.
+        - Automate provisioning of sources as part of a pipeline setup.
+
+    Recommended Workflow:
+        1. Call airbyte_list_source_definitions to find the definition ID
+           for the connector type you want (e.g. "source-postgres").
+        2. Review an existing source of the same type with
+           airbyte_get_source to understand the configuration structure.
+        3. Call this tool with the appropriate configuration.
+
+    Returns:
+        The created source details (same fields as airbyte_get_source).
+
+    Examples:
+        params = {
+            "name": "Production Postgres",
+            "workspace_id": "a1b2c3d4-...",
+            "definition_id": "decd338e-...",
+            "configuration": {
+                "sourceType": "postgres",
+                "host": "db.example.com",
+                "port": 5432,
+                "database": "mydb",
+                "username": "readonly",
+                "password": "secret"
+            }
+        }
+    """
+    try:
+        client = get_client()
+        body: dict[str, Any] = {
+            "name": params.name,
+            "workspaceId": params.workspace_id,
+            "configuration": params.configuration,
+        }
+        if params.definition_id:
+            body["definitionId"] = params.definition_id
+        if params.secret_id:
+            body["secretId"] = params.secret_id
+
+        resp = await client.request("POST", "/sources", json_body=body)
+        data = resp.json()
+        if params.response_format == ResponseFormat.JSON:
+            return to_json(data)
+        return _fmt_source(data)
+    except Exception as exc:
+        return handle_api_error(exc)
+
+
+@mcp.tool(
+    name="airbyte_update_source",
+    annotations=ToolAnnotations(
+        title="Update Airbyte Source",
+        readOnlyHint=False,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=True,
+    ),
+)
+async def airbyte_update_source(params: UpdateSourceInput) -> str:
+    """Update an existing source connector's name or configuration.
+
+    Uses PATCH semantics: only the fields you provide are changed.
+    The configuration object is merged at the top level by the API.
+
+    When to Use:
+        - Change connection credentials (e.g. rotate a password).
+        - Rename a source for clarity.
+        - Update connector settings (e.g. change replication slot).
+
+    Recommended Workflow:
+        1. Call airbyte_get_source to see the current configuration.
+        2. Build the updated configuration with only the changed fields.
+        3. Call this tool.
+
+    Returns:
+        The updated source details.
+
+    Examples:
+        Rename a source:
+            params = { "source_id": "a1b2c3d4-...", "name": "New Name" }
+        Update configuration:
+            params = {
+                "source_id": "a1b2c3d4-...",
+                "configuration": { "password": "new-secret" }
+            }
+    """
+    try:
+        client = get_client()
+        body: dict[str, Any] = {}
+        if params.name is not None:
+            body["name"] = params.name
+        if params.configuration is not None:
+            body["configuration"] = params.configuration
+
+        resp = await client.request("PATCH", f"/sources/{params.source_id}", json_body=body)
         data = resp.json()
         if params.response_format == ResponseFormat.JSON:
             return to_json(data)

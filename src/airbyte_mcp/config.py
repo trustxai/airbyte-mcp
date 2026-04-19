@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     )
 
     airbyte_api_url: str = "http://localhost:8000/api/public/v1"
+    airbyte_internal_api_url: str = ""
     airbyte_client_id: str = ""
     airbyte_client_secret: str = ""
     airbyte_access_token: str = ""
@@ -29,6 +30,13 @@ class Settings(BaseSettings):
     @property
     def can_exchange_token(self) -> bool:
         return bool(self.airbyte_client_id and self.airbyte_client_secret)
+
+    @property
+    def resolved_internal_api_url(self) -> str:
+        """Internal (Configuration) API URL, derived from public URL if not set."""
+        if self.airbyte_internal_api_url:
+            return self.airbyte_internal_api_url
+        return self.airbyte_api_url.replace("/api/public/v1", "/api/v1")
 
 
 @lru_cache(maxsize=1)

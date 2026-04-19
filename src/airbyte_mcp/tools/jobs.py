@@ -60,6 +60,24 @@ class GetJobInput(BaseModel):
     response_format: ResponseFormat = Field(default=ResponseFormat.MARKDOWN)
 
 
+class TriggerSyncInput(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    connection_id: str = Field(..., min_length=1, description="UUID of the connection to sync.")
+    job_type: str = Field(
+        default="sync",
+        description="Job type: 'sync' to replicate data, or 'reset' to clear and re-sync.",
+    )
+    response_format: ResponseFormat = Field(default=ResponseFormat.MARKDOWN)
+
+
+class CancelJobInput(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    job_id: str = Field(..., min_length=1, description="Numeric ID of the job to cancel.")
+    response_format: ResponseFormat = Field(default=ResponseFormat.MARKDOWN)
+
+
 # ---------------------------------------------------------------------------
 # Formatters
 # ---------------------------------------------------------------------------
@@ -71,15 +89,22 @@ def _fmt_job(job: dict[str, Any]) -> str:
     rows_synced = job.get("rowsSynced")
     bytes_str = f"{bytes_synced:,}" if bytes_synced is not None else "N/A"
     rows_str = f"{rows_synced:,}" if rows_synced is not None else "N/A"
-    return (
-        f"## Job {job.get('jobId', '?')} — **{job.get('status', '?')}**\n"
-        f"- **Type**: {job.get('jobType', '?')}\n"
-        f"- **Connection**: {job.get('connectionId', '?')}\n"
-        f"- **Started**: {job.get('startTime', 'N/A')}\n"
-        f"- **Duration**: {duration}\n"
-        f"- **Bytes synced**: {bytes_str}\n"
-        f"- **Rows synced**: {rows_str}\n"
-    )
+    status = job.get("status", "?")
+    lines = [
+        f"## Job {job.get('jobId', '?')} — **{status}**",
+        f"- **Type**: {job.get('jobType', '?')}",
+        f"- **Connection**: {job.get('connectionId', '?')}",
+        f"- **Started**: {job.get('startTime', 'N/A')}",
+        f"- **Last updated**: {job.get('lastUpdatedAt', 'N/A')}",
+        f"- **Duration**: {duration}",
+        f"- **Bytes synced**: {bytes_str}",
+        f"- **Rows synced**: {rows_str}",
+    ]
+    if status in ("failed", "incomplete"):
+        lines.append(
+            "- **Tip**: Use `airbyte_get_job_details` for failure reasons and `airbyte_get_job_logs` for full logs."
+        )
+    return "\n".join(lines) + "\n"
 
 
 # ---------------------------------------------------------------------------
@@ -226,6 +251,93 @@ async def airbyte_get_job(params: GetJobInput) -> str:
     try:
         client = get_client()
         resp = await client.request("GET", f"/jobs/{params.job_id}")
+        data = resp.json()
+        if params.response_format == ResponseFormat.JSON:
+            return to_json(data)
+        return _fmt_job(data)
+    except Exception as exc:
+        return handle_api_error(exc)
+
+
+@mcp.tool(
+    name="airbyte_trigger_sync",
+    annotations=ToolAnnotations(
+        title="Trigger Airbyte Sync",
+        readOnlyHint=False,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    ),
+)
+async def airbyte_trigger_sync(params: TriggerSyncInput) -> str:
+    """Trigger a sync or reset job for a connection.
+
+    Starts a new job that replicates data from source to destination
+    (sync) or clears destination data and re-syncs (reset).
+
+    When to Use:
+        - Manually kick off a sync outside the regular schedule.
+        - Trigger a reset after schema changes or data issues.
+        - Automate syncs in response to upstream events.
+
+    When NOT to Use:
+        - The connection is already running a sync (check with
+          airbyte_list_jobs first).
+
+    Returns:
+        The newly created job with its jobId and initial status.
+
+    Examples:
+        Trigger a sync:
+            params = { "connection_id": "a1b2c3d4-..." }
+        Trigger a reset:
+            params = { "connection_id": "a1b2c3d4-...", "job_type": "reset" }
+    """
+    try:
+        client = get_client()
+        body = {
+            "connectionId": params.connection_id,
+            "jobType": params.job_type,
+        }
+        resp = await client.request("POST", "/jobs", json_body=body)
+        data = resp.json()
+        if params.response_format == ResponseFormat.JSON:
+            return to_json(data)
+        return _fmt_job(data)
+    except Exception as exc:
+        return handle_api_error(exc)
+
+
+@mcp.tool(
+    name="airbyte_cancel_job",
+    annotations=ToolAnnotations(
+        title="Cancel Airbyte Job",
+        readOnlyHint=False,
+        destructiveHint=True,
+        idempotentHint=True,
+        openWorldHint=True,
+    ),
+)
+async def airbyte_cancel_job(params: CancelJobInput) -> str:
+    """Cancel a running sync or reset job.
+
+    Sends a cancellation request to the Airbyte API. The job will
+    transition to 'cancelled' status. Already-committed data is
+    retained; only in-flight data is discarded.
+
+    When to Use:
+        - Stop a long-running or stuck sync.
+        - Cancel an accidental reset.
+
+    Returns:
+        The cancelled job's details.
+
+    Examples:
+        params = { "job_id": "12345" }
+    """
+    try:
+        client = get_client()
+        resp = await client.request("DELETE", f"/jobs/{params.job_id}")
         data = resp.json()
         if params.response_format == ResponseFormat.JSON:
             return to_json(data)

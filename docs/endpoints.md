@@ -20,8 +20,8 @@ Implemented endpoints are marked `[x]`, pending ones `[ ]`.
 
 - [x] `GET /sources` — List sources
 - [x] `GET /sources/{sourceId}` — Get source
-- [ ] `POST /sources` — Create source
-- [ ] `PATCH /sources/{sourceId}` — Update source
+- [x] `POST /sources` — Create source
+- [x] `PATCH /sources/{sourceId}` — Update source
 - [ ] `PUT /sources/{sourceId}` — Replace source
 - [ ] `DELETE /sources/{sourceId}` — Delete source
 - [ ] `POST /sources/{sourceId}/checkConnection` — Check source connection
@@ -30,8 +30,8 @@ Implemented endpoints are marked `[x]`, pending ones `[ ]`.
 
 - [x] `GET /destinations` — List destinations
 - [x] `GET /destinations/{destinationId}` — Get destination
-- [ ] `POST /destinations` — Create destination
-- [ ] `PATCH /destinations/{destinationId}` — Update destination
+- [x] `POST /destinations` — Create destination
+- [x] `PATCH /destinations/{destinationId}` — Update destination
 - [ ] `PUT /destinations/{destinationId}` — Replace destination
 - [ ] `DELETE /destinations/{destinationId}` — Delete destination
 
@@ -39,20 +39,20 @@ Implemented endpoints are marked `[x]`, pending ones `[ ]`.
 
 - [x] `GET /connections` — List connections
 - [x] `GET /connections/{connectionId}` — Get connection
-- [ ] `POST /connections` — Create connection
-- [ ] `PATCH /connections/{connectionId}` — Update connection
+- [x] `POST /connections` — Create connection
+- [x] `PATCH /connections/{connectionId}` — Update connection
 - [ ] `DELETE /connections/{connectionId}` — Delete connection
 
 ## Jobs (4 endpoints)
 
 - [x] `GET /jobs` — List jobs
 - [x] `GET /jobs/{jobId}` — Get job
-- [ ] `POST /jobs` — Trigger sync or reset job
-- [ ] `DELETE /jobs/{jobId}` — Cancel job
+- [x] `POST /jobs` — Trigger sync or reset job
+- [x] `DELETE /jobs/{jobId}` — Cancel job
 
 ## Streams (1 endpoint)
 
-- [ ] `GET /streams` — Get stream properties for a source/destination pair
+- [x] `GET /streams` — Get stream properties for a source/destination pair
 
 ## Permissions (5 endpoints)
 
@@ -72,24 +72,24 @@ Implemented endpoints are marked `[x]`, pending ones `[ ]`.
 
 ## Tags (4 endpoints)
 
-- [ ] `GET /tags` — List tags
-- [ ] `POST /tags` — Create tag
-- [ ] `PATCH /tags/{tagId}` — Update tag
-- [ ] `DELETE /tags/{tagId}` — Delete tag
+- [x] `GET /tags` — List tags
+- [x] `POST /tags` — Create tag
+- [x] `PATCH /tags/{tagId}` — Update tag
+- [x] `DELETE /tags/{tagId}` — Delete tag
 
 ## Source Definitions (custom connectors)
 
-- [ ] `GET /workspaces/{workspaceId}/definitions/sources` — List source definitions
+- [x] `GET /workspaces/{workspaceId}/definitions/sources` — List source definitions
 - [ ] `POST /workspaces/{workspaceId}/definitions/sources` — Create source definition
-- [ ] `GET /workspaces/{workspaceId}/definitions/sources/{definitionId}` — Get source definition
+- [x] `GET /workspaces/{workspaceId}/definitions/sources/{definitionId}` — Get source definition
 - [ ] `PUT /workspaces/{workspaceId}/definitions/sources/{definitionId}` — Update source definition
 - [ ] `DELETE /workspaces/{workspaceId}/definitions/sources/{definitionId}` — Delete source definition
 
 ## Destination Definitions (custom connectors)
 
-- [ ] `GET /workspaces/{workspaceId}/definitions/destinations` — List destination definitions
+- [x] `GET /workspaces/{workspaceId}/definitions/destinations` — List destination definitions
 - [ ] `POST /workspaces/{workspaceId}/definitions/destinations` — Create destination definition
-- [ ] `GET /workspaces/{workspaceId}/definitions/destinations/{definitionId}` — Get destination definition
+- [x] `GET /workspaces/{workspaceId}/definitions/destinations/{definitionId}` — Get destination definition
 - [ ] `PUT /workspaces/{workspaceId}/definitions/destinations/{definitionId}` — Update destination definition
 - [ ] `DELETE /workspaces/{workspaceId}/definitions/destinations/{definitionId}` — Delete destination definition
 
@@ -101,6 +101,12 @@ Implemented endpoints are marked `[x]`, pending ones `[ ]`.
 - [ ] `PUT /workspaces/{workspaceId}/definitions/declarative_sources/{definitionId}` — Update YAML source definition
 - [ ] `DELETE /workspaces/{workspaceId}/definitions/declarative_sources/{definitionId}` — Delete YAML source definition
 
+## Internal Configuration API (self-managed only)
+
+- [x] `POST /api/v1/jobs/get` — Get job details with attempt stats and failure summaries
+- [x] `POST /api/v1/jobs/get_debug_info` — Get job debug info with full logs
+- [x] `POST /api/v1/attempt/get_for_job` — Get attempt logs for a specific attempt
+
 ---
 
-**Summary**: 11 / ~50+ endpoints implemented (read-only core resources).
+**Summary**: 30 / ~50+ endpoints implemented (read + write for core resources, internal API for logs).

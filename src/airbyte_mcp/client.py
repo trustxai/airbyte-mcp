@@ -1,4 +1,4 @@
-"""Async HTTP client for the Airbyte Public API with automatic token management."""
+"""Async HTTP client for the Airbyte API with automatic token management."""
 
 from __future__ import annotations
 
@@ -13,7 +13,12 @@ _TOKEN_SAFETY_MARGIN = 30  # seconds before actual expiry to refresh
 
 
 class AirbyteClient:
-    """Thin wrapper around httpx that handles Bearer-token lifecycle."""
+    """Thin wrapper around httpx that handles Bearer-token lifecycle.
+
+    Supports both the Public API (``/api/public/v1``) and the internal
+    Configuration API (``/api/v1``) used on self-managed deployments.
+    Pass ``use_internal=True`` to route a request to the Configuration API.
+    """
 
     def __init__(self) -> None:
         self._token: str = ""
@@ -59,14 +64,21 @@ class AirbyteClient:
         *,
         params: dict[str, Any] | None = None,
         json_body: dict[str, Any] | None = None,
+        use_internal: bool = False,
         _retried: bool = False,
     ) -> httpx.Response:
         """Execute an authenticated request against the Airbyte API.
 
+        Args:
+            use_internal: When *True*, route to the internal Configuration
+                API (``/api/v1``) instead of the public API. The internal
+                API is only available on self-managed Airbyte deployments.
+
         Automatically refreshes the token on 401 (once).
         """
         settings = get_settings()
-        url = f"{settings.airbyte_api_url}/{path.lstrip('/')}"
+        base = settings.resolved_internal_api_url if use_internal else settings.airbyte_api_url
+        url = f"{base}/{path.lstrip('/')}"
 
         async with httpx.AsyncClient(timeout=30.0) as client:
             token = await self._ensure_token(client)
@@ -86,7 +98,14 @@ class AirbyteClient:
             if resp.status_code == 401 and not _retried:
                 self._token = ""
                 self._expires_at = 0.0
-                return await self.request(method, path, params=params, json_body=json_body, _retried=True)
+                return await self.request(
+                    method,
+                    path,
+                    params=params,
+                    json_body=json_body,
+                    use_internal=use_internal,
+                    _retried=True,
+                )
 
             resp.raise_for_status()
             return resp

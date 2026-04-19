@@ -6,11 +6,22 @@ readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 authors = [{ name = "Alejandro Latorre" }]
+keywords = [
+    "python",
+    "etl",
+    "mcp",
+    "data-integration",
+    "airbyte",
+    "llm-tools",
+    "model-context-protocol",
+    "mcp-server",
+]
 classifiers = [
     "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Libraries",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 requires-python = ">=3.13"
 dependencies = [
