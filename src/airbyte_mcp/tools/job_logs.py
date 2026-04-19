@@ -309,7 +309,8 @@ async def airbyte_get_job_logs(params: GetJobLogsInput) -> str:
 
             lines.append(f"## Attempt {i} — **{status}**")
             if log_lines:
-                total = len(attempt_info.get("logs", {}).get("logLines", log_lines))
+                logs = attempt_info.get("logs")
+                total = len(logs.get("logLines", [])) if isinstance(logs, dict) else len(logs or [])
                 if total > params.tail_lines:
                     lines.append(f"*Showing last {params.tail_lines} of {total} lines*\n")
                 lines.append("```")
@@ -393,8 +394,8 @@ async def airbyte_get_attempt_logs(params: GetAttemptLogsInput) -> str:
         lines.append("")
 
         if log_lines:
-            all_logs = data.get("logs", {})
-            total = len(all_logs.get("logLines", log_lines)) if isinstance(all_logs, dict) else len(log_lines)
+            all_logs = data.get("logs")
+            total = len(all_logs.get("logLines", [])) if isinstance(all_logs, dict) else len(all_logs or [])
             if total > params.tail_lines:
                 lines.append(f"*Showing last {params.tail_lines} of {total} lines*\n")
             lines.append("```")
