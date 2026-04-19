@@ -42,6 +42,41 @@ class GetDestinationInput(BaseModel):
     response_format: ResponseFormat = Field(default=ResponseFormat.MARKDOWN)
 
 
+class CreateDestinationInput(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    name: str = Field(..., min_length=1, description="Human-readable name for the destination.")
+    workspace_id: str = Field(..., min_length=1, description="UUID of the workspace to own the destination.")
+    definition_id: str | None = Field(
+        default=None,
+        description="UUID of the destination connector definition. Provide this OR set destinationType inside configuration.",
+    )
+    configuration: dict[str, Any] = Field(
+        ...,
+        description=(
+            "Connector-specific configuration object (JSON). Each destination type has its own schema. "
+            "Use airbyte_get_destination on an existing destination of the same type to see the structure, "
+            "or airbyte_list_destination_definitions to discover available connector types."
+        ),
+    )
+    response_format: ResponseFormat = Field(default=ResponseFormat.MARKDOWN)
+
+
+class UpdateDestinationInput(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    destination_id: str = Field(..., min_length=1, description="UUID of the destination to update.")
+    name: str | None = Field(default=None, description="New name for the destination.")
+    configuration: dict[str, Any] | None = Field(
+        default=None,
+        description=(
+            "Updated connector configuration (JSON). Only include fields you want to change. "
+            "Call airbyte_get_destination first to see the current configuration."
+        ),
+    )
+    response_format: ResponseFormat = Field(default=ResponseFormat.MARKDOWN)
+
+
 # ---------------------------------------------------------------------------
 # Formatters
 # ---------------------------------------------------------------------------
@@ -185,6 +220,123 @@ async def airbyte_get_destination(params: GetDestinationInput) -> str:
     try:
         client = get_client()
         resp = await client.request("GET", f"/destinations/{params.destination_id}")
+        data = resp.json()
+        if params.response_format == ResponseFormat.JSON:
+            return to_json(data)
+        return _fmt_destination(data)
+    except Exception as exc:
+        return handle_api_error(exc)
+
+
+@mcp.tool(
+    name="airbyte_create_destination",
+    annotations=ToolAnnotations(
+        title="Create Airbyte Destination",
+        readOnlyHint=False,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=True,
+    ),
+)
+async def airbyte_create_destination(params: CreateDestinationInput) -> str:
+    """Create a new destination connector in Airbyte.
+
+    A destination defines where Airbyte writes data to (a warehouse,
+    database, data lake, SaaS tool, etc.). Each destination type
+    requires its own configuration schema.
+
+    When to Use:
+        - Set up a brand-new data destination inside a workspace.
+        - Automate provisioning of destinations for pipeline setup.
+
+    Recommended Workflow:
+        1. Call airbyte_list_destination_definitions to find the
+           definition ID for the connector type you want.
+        2. Review an existing destination of the same type with
+           airbyte_get_destination to understand the config structure.
+        3. Call this tool with the appropriate configuration.
+
+    Returns:
+        The created destination details.
+
+    Examples:
+        params = {
+            "name": "Analytics Warehouse",
+            "workspace_id": "a1b2c3d4-...",
+            "definition_id": "22f6c74f-...",
+            "configuration": {
+                "destinationType": "bigquery",
+                "project_id": "my-project",
+                "dataset_id": "raw_data",
+                "credentials_json": "..."
+            }
+        }
+    """
+    try:
+        client = get_client()
+        body: dict[str, Any] = {
+            "name": params.name,
+            "workspaceId": params.workspace_id,
+            "configuration": params.configuration,
+        }
+        if params.definition_id:
+            body["definitionId"] = params.definition_id
+
+        resp = await client.request("POST", "/destinations", json_body=body)
+        data = resp.json()
+        if params.response_format == ResponseFormat.JSON:
+            return to_json(data)
+        return _fmt_destination(data)
+    except Exception as exc:
+        return handle_api_error(exc)
+
+
+@mcp.tool(
+    name="airbyte_update_destination",
+    annotations=ToolAnnotations(
+        title="Update Airbyte Destination",
+        readOnlyHint=False,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=True,
+    ),
+)
+async def airbyte_update_destination(params: UpdateDestinationInput) -> str:
+    """Update an existing destination connector's name or configuration.
+
+    Uses PATCH semantics: only the fields you provide are changed.
+
+    When to Use:
+        - Change connection credentials (e.g. rotate a service account).
+        - Rename a destination for clarity.
+        - Update connector settings (e.g. change dataset or bucket).
+
+    Recommended Workflow:
+        1. Call airbyte_get_destination to see the current configuration.
+        2. Build the updated configuration with only the changed fields.
+        3. Call this tool.
+
+    Returns:
+        The updated destination details.
+
+    Examples:
+        Rename a destination:
+            params = { "destination_id": "a1b2c3d4-...", "name": "New Name" }
+        Update configuration:
+            params = {
+                "destination_id": "a1b2c3d4-...",
+                "configuration": { "dataset_id": "new_dataset" }
+            }
+    """
+    try:
+        client = get_client()
+        body: dict[str, Any] = {}
+        if params.name is not None:
+            body["name"] = params.name
+        if params.configuration is not None:
+            body["configuration"] = params.configuration
+
+        resp = await client.request("PATCH", f"/destinations/{params.destination_id}", json_body=body)
         data = resp.json()
         if params.response_format == ResponseFormat.JSON:
             return to_json(data)

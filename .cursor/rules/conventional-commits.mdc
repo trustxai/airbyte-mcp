@@ -1,0 +1,37 @@
+---
+description: Enforce Conventional Commits format for all commit messages
+alwaysApply: true
+---
+
+# Conventional Commits
+
+All commit messages MUST follow [Conventional Commits](https://www.conventionalcommits.org/):
+
+```
+<type>[optional scope]: <description>
+```
+
+## Types and when to use them
+
+| Type | When | Triggers release? |
+|------|------|-------------------|
+| `feat:` | New feature or capability | Yes (patch while pre-1.0) |
+| `fix:` | Bug fix | Yes (patch) |
+| `docs:` | Documentation only | No |
+| `chore:` | Maintenance, deps, CI config | No |
+| `refactor:` | Code change that neither fixes nor adds | No |
+| `test:` | Adding or updating tests | No |
+
+## Examples
+
+```
+feat: add airbyte_get_stream_properties tool
+fix: handle 401 during token exchange retry
+docs: update endpoints checklist with streams
+chore: bump mcp sdk to 1.28
+feat!: rename all tool prefixes to ab_
+```
+
+## Breaking changes
+
+Append `!` after the type or add `BREAKING CHANGE:` in the footer. While pre-1.0, this bumps minor (e.g. 0.1.1 → 0.2.0).
