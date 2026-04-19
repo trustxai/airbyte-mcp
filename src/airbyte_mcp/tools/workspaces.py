@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from typing import Any
+
+from mcp.types import ToolAnnotations
 from pydantic import BaseModel, ConfigDict, Field
 
 from airbyte_mcp.client import get_client
@@ -19,9 +22,7 @@ class ListWorkspacesInput(BaseModel):
 
     limit: int = Field(default=20, ge=1, le=100, description="Max results to return.")
     offset: int = Field(default=0, ge=0, description="Pagination offset.")
-    include_deleted: bool = Field(
-        default=False, description="Include soft-deleted workspaces."
-    )
+    include_deleted: bool = Field(default=False, description="Include soft-deleted workspaces.")
     response_format: ResponseFormat = Field(
         default=ResponseFormat.MARKDOWN,
         description="Output format: 'markdown' or 'json'.",
@@ -40,7 +41,7 @@ class GetWorkspaceInput(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-def _fmt_workspace(ws: dict) -> str:
+def _fmt_workspace(ws: dict[str, Any]) -> str:
     return (
         f"## {ws.get('name', 'Unnamed')} (`{ws.get('workspaceId', '?')}`)\n"
         f"- **Data residency**: {ws.get('dataResidency', 'auto')}\n"
@@ -54,13 +55,13 @@ def _fmt_workspace(ws: dict) -> str:
 
 @mcp.tool(
     name="airbyte_list_workspaces",
-    annotations={
-        "title": "List Airbyte Workspaces",
-        "readOnlyHint": True,
-        "destructiveHint": False,
-        "idempotentHint": True,
-        "openWorldHint": True,
-    },
+    annotations=ToolAnnotations(
+        title="List Airbyte Workspaces",
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=True,
+    ),
 )
 async def airbyte_list_workspaces(params: ListWorkspacesInput) -> str:
     """List all Airbyte workspaces the current credentials have access to.
@@ -124,13 +125,13 @@ async def airbyte_list_workspaces(params: ListWorkspacesInput) -> str:
 
 @mcp.tool(
     name="airbyte_get_workspace",
-    annotations={
-        "title": "Get Airbyte Workspace",
-        "readOnlyHint": True,
-        "destructiveHint": False,
-        "idempotentHint": True,
-        "openWorldHint": True,
-    },
+    annotations=ToolAnnotations(
+        title="Get Airbyte Workspace",
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=True,
+    ),
 )
 async def airbyte_get_workspace(params: GetWorkspaceInput) -> str:
     """Get full details of a single Airbyte workspace by its UUID.

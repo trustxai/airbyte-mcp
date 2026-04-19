@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any
 
+from mcp.types import ToolAnnotations
 from pydantic import BaseModel, ConfigDict, Field
 
 from airbyte_mcp.client import get_client
@@ -24,24 +25,20 @@ from airbyte_mcp.server import mcp
 class ListDestinationsInput(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
 
-    workspace_ids: Optional[list[str]] = Field(
+    workspace_ids: list[str] | None = Field(
         default=None,
         description="Filter by workspace UUIDs. Omit to list across all allowed workspaces.",
     )
     limit: int = Field(default=20, ge=1, le=100, description="Max results to return.")
     offset: int = Field(default=0, ge=0, description="Pagination offset.")
-    include_deleted: bool = Field(
-        default=False, description="Include soft-deleted destinations."
-    )
+    include_deleted: bool = Field(default=False, description="Include soft-deleted destinations.")
     response_format: ResponseFormat = Field(default=ResponseFormat.MARKDOWN)
 
 
 class GetDestinationInput(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
 
-    destination_id: str = Field(
-        ..., min_length=1, description="UUID of the destination."
-    )
+    destination_id: str = Field(..., min_length=1, description="UUID of the destination.")
     response_format: ResponseFormat = Field(default=ResponseFormat.MARKDOWN)
 
 
@@ -50,7 +47,7 @@ class GetDestinationInput(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-def _fmt_destination(dst: dict) -> str:
+def _fmt_destination(dst: dict[str, Any]) -> str:
     created = epoch_to_human(dst.get("createdAt"))
     return (
         f"## {dst.get('name', 'Unnamed')} (`{dst.get('destinationId', '?')}`)\n"
@@ -67,13 +64,13 @@ def _fmt_destination(dst: dict) -> str:
 
 @mcp.tool(
     name="airbyte_list_destinations",
-    annotations={
-        "title": "List Airbyte Destinations",
-        "readOnlyHint": True,
-        "destructiveHint": False,
-        "idempotentHint": True,
-        "openWorldHint": True,
-    },
+    annotations=ToolAnnotations(
+        title="List Airbyte Destinations",
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=True,
+    ),
 )
 async def airbyte_list_destinations(params: ListDestinationsInput) -> str:
     """List destination connectors configured in Airbyte.
@@ -117,7 +114,7 @@ async def airbyte_list_destinations(params: ListDestinationsInput) -> str:
     """
     try:
         client = get_client()
-        query: dict = {
+        query: dict[str, Any] = {
             "limit": params.limit,
             "offset": params.offset,
             "includeDeleted": params.include_deleted,
@@ -140,13 +137,13 @@ async def airbyte_list_destinations(params: ListDestinationsInput) -> str:
 
 @mcp.tool(
     name="airbyte_get_destination",
-    annotations={
-        "title": "Get Airbyte Destination",
-        "readOnlyHint": True,
-        "destructiveHint": False,
-        "idempotentHint": True,
-        "openWorldHint": True,
-    },
+    annotations=ToolAnnotations(
+        title="Get Airbyte Destination",
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=True,
+    ),
 )
 async def airbyte_get_destination(params: GetDestinationInput) -> str:
     """Get full details of a single destination connector by its UUID.

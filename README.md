@@ -45,7 +45,7 @@ See [docs/endpoints.md](docs/endpoints.md) for the full Airbyte API endpoint che
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/trustai/airbyte-mcp.git
+git clone https://github.com/trustxai/airbyte-mcp.git
 cd airbyte-mcp
 uv sync
 ```
@@ -261,7 +261,7 @@ docker run --rm -p 8080:8080 --env-file .env airbyte-mcp-http:latest
 - [Local Setup](docs/local-setup.md) — abctl installation walkthrough
 - [Contributing](docs/CONTRIBUTING.md) — development workflow, PR guidelines
 - [Security](docs/SECURITY.md) — vulnerability reporting
-- [Changelog](docs/CHANGELOG.md) — release history
+- [Changelog](CHANGELOG.md) — release history
 
 ## Contributing
 
@@ -269,4 +269,4 @@ Contributions are welcome! See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) to g
 
 ## License
 
-MIT
+Apache-2.0 — see [LICENSE](LICENSE) for details.

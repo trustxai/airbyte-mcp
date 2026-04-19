@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from mcp.types import ToolAnnotations
+
 from airbyte_mcp.client import get_client
 from airbyte_mcp.errors import handle_api_error
 from airbyte_mcp.server import mcp
@@ -9,13 +11,13 @@ from airbyte_mcp.server import mcp
 
 @mcp.tool(
     name="airbyte_health_check",
-    annotations={
-        "title": "Airbyte Health Check",
-        "readOnlyHint": True,
-        "destructiveHint": False,
-        "idempotentHint": True,
-        "openWorldHint": True,
-    },
+    annotations=ToolAnnotations(
+        title="Airbyte Health Check",
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=True,
+    ),
 )
 async def airbyte_health_check() -> str:
     """Check whether the Airbyte API is reachable and healthy.

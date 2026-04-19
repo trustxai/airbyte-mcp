@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Any
 
 
-class ResponseFormat(str, Enum):
+class ResponseFormat(StrEnum):
     MARKDOWN = "markdown"
     JSON = "json"
 
@@ -20,7 +20,7 @@ def to_json(data: Any) -> str:
 def epoch_to_human(ts: int | float | None) -> str:
     if ts is None:
         return "N/A"
-    return datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    return datetime.fromtimestamp(ts, tz=UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
 
 
 def paginated_response(

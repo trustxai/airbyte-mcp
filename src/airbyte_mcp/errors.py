@@ -30,9 +30,6 @@ def handle_api_error(exc: Exception) -> str:
         return "Error: request to Airbyte API timed out. Is the server running?"
 
     if isinstance(exc, httpx.ConnectError):
-        return (
-            "Error: could not connect to Airbyte API. "
-            "Verify AIRBYTE_API_URL and that Airbyte is running."
-        )
+        return "Error: could not connect to Airbyte API. Verify AIRBYTE_API_URL and that Airbyte is running."
 
     return f"Error: unexpected failure – {type(exc).__name__}: {exc}"

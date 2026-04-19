@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any
 
+from mcp.types import ToolAnnotations
 from pydantic import BaseModel, ConfigDict, Field
 
 from airbyte_mcp.client import get_client
@@ -19,31 +20,31 @@ from airbyte_mcp.server import mcp
 class ListJobsInput(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
 
-    connection_id: Optional[str] = Field(
+    connection_id: str | None = Field(
         default=None,
         description="Filter by connection UUID.",
     )
-    workspace_ids: Optional[list[str]] = Field(
+    workspace_ids: list[str] | None = Field(
         default=None,
         description="Filter by workspace UUIDs.",
     )
-    job_type: Optional[str] = Field(
+    job_type: str | None = Field(
         default=None,
         description="Filter by job type: 'sync' or 'reset'.",
     )
-    status: Optional[str] = Field(
+    status: str | None = Field(
         default=None,
         description="Filter by status: pending, running, incomplete, failed, succeeded, cancelled.",
     )
-    created_at_start: Optional[str] = Field(
+    created_at_start: str | None = Field(
         default=None,
         description="ISO-8601 start date filter (e.g. '2024-01-01T00:00:00Z').",
     )
-    created_at_end: Optional[str] = Field(
+    created_at_end: str | None = Field(
         default=None,
         description="ISO-8601 end date filter.",
     )
-    order_by: Optional[str] = Field(
+    order_by: str | None = Field(
         default=None,
         description="Order results, e.g. 'createdAt|DESC'.",
     )
@@ -55,9 +56,7 @@ class ListJobsInput(BaseModel):
 class GetJobInput(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
 
-    job_id: str = Field(
-        ..., min_length=1, description="Numeric ID of the job (as string)."
-    )
+    job_id: str = Field(..., min_length=1, description="Numeric ID of the job (as string).")
     response_format: ResponseFormat = Field(default=ResponseFormat.MARKDOWN)
 
 
@@ -66,7 +65,7 @@ class GetJobInput(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-def _fmt_job(job: dict) -> str:
+def _fmt_job(job: dict[str, Any]) -> str:
     duration = job.get("duration", "N/A")
     bytes_synced = job.get("bytesSynced")
     rows_synced = job.get("rowsSynced")
@@ -90,13 +89,13 @@ def _fmt_job(job: dict) -> str:
 
 @mcp.tool(
     name="airbyte_list_jobs",
-    annotations={
-        "title": "List Airbyte Jobs",
-        "readOnlyHint": True,
-        "destructiveHint": False,
-        "idempotentHint": True,
-        "openWorldHint": True,
-    },
+    annotations=ToolAnnotations(
+        title="List Airbyte Jobs",
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=True,
+    ),
 )
 async def airbyte_list_jobs(params: ListJobsInput) -> str:
     """List sync and reset jobs with rich filtering options.
@@ -149,7 +148,7 @@ async def airbyte_list_jobs(params: ListJobsInput) -> str:
     """
     try:
         client = get_client()
-        query: dict = {"limit": params.limit, "offset": params.offset}
+        query: dict[str, Any] = {"limit": params.limit, "offset": params.offset}
         if params.connection_id:
             query["connectionId"] = params.connection_id
         if params.workspace_ids:
@@ -181,13 +180,13 @@ async def airbyte_list_jobs(params: ListJobsInput) -> str:
 
 @mcp.tool(
     name="airbyte_get_job",
-    annotations={
-        "title": "Get Airbyte Job",
-        "readOnlyHint": True,
-        "destructiveHint": False,
-        "idempotentHint": True,
-        "openWorldHint": True,
-    },
+    annotations=ToolAnnotations(
+        title="Get Airbyte Job",
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=True,
+    ),
 )
 async def airbyte_get_job(params: GetJobInput) -> str:
     """Get full details of a single sync or reset job by its numeric ID.

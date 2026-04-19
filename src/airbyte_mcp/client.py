@@ -47,9 +47,7 @@ class AirbyteClient:
         resp.raise_for_status()
         body = resp.json()
         self._token = body["access_token"]
-        self._expires_at = (
-            time.time() + body.get("expires_in", 900) - _TOKEN_SAFETY_MARGIN
-        )
+        self._expires_at = time.time() + body.get("expires_in", 900) - _TOKEN_SAFETY_MARGIN
         return self._token
 
     # -- public API ---------------------------------------------------------
@@ -88,9 +86,7 @@ class AirbyteClient:
             if resp.status_code == 401 and not _retried:
                 self._token = ""
                 self._expires_at = 0.0
-                return await self.request(
-                    method, path, params=params, json_body=json_body, _retried=True
-                )
+                return await self.request(method, path, params=params, json_body=json_body, _retried=True)
 
             resp.raise_for_status()
             return resp

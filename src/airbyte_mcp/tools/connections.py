@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any
 
+from mcp.types import ToolAnnotations
 from pydantic import BaseModel, ConfigDict, Field
 
 from airbyte_mcp.client import get_client
@@ -19,15 +20,13 @@ from airbyte_mcp.server import mcp
 class ListConnectionsInput(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
 
-    workspace_ids: Optional[list[str]] = Field(
+    workspace_ids: list[str] | None = Field(
         default=None,
         description="Filter by workspace UUIDs. Omit to list across all allowed workspaces.",
     )
     limit: int = Field(default=20, ge=1, le=100, description="Max results to return.")
     offset: int = Field(default=0, ge=0, description="Pagination offset.")
-    include_deleted: bool = Field(
-        default=False, description="Include soft-deleted connections."
-    )
+    include_deleted: bool = Field(default=False, description="Include soft-deleted connections.")
     response_format: ResponseFormat = Field(default=ResponseFormat.MARKDOWN)
 
 
@@ -43,10 +42,10 @@ class GetConnectionInput(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-def _fmt_schedule(sched: dict | None) -> str:
+def _fmt_schedule(sched: dict[str, Any] | None) -> str:
     if not sched:
         return "N/A"
-    stype = sched.get("scheduleType", "?")
+    stype: str = str(sched.get("scheduleType", "?"))
     if stype == "cron":
         return f"cron: `{sched.get('cronExpression', '?')}`"
     if stype == "basic":
@@ -54,7 +53,7 @@ def _fmt_schedule(sched: dict | None) -> str:
     return stype
 
 
-def _fmt_streams(configs: dict | None) -> str:
+def _fmt_streams(configs: dict[str, Any] | None) -> str:
     if not configs:
         return "none configured"
     streams = configs.get("streams", [])
@@ -65,7 +64,7 @@ def _fmt_streams(configs: dict | None) -> str:
     return ", ".join(names) + suffix
 
 
-def _fmt_connection(conn: dict) -> str:
+def _fmt_connection(conn: dict[str, Any]) -> str:
     return (
         f"## {conn.get('name', 'Unnamed')} (`{conn.get('connectionId', '?')}`)\n"
         f"- **Status**: {conn.get('status', '?')}\n"
@@ -84,13 +83,13 @@ def _fmt_connection(conn: dict) -> str:
 
 @mcp.tool(
     name="airbyte_list_connections",
-    annotations={
-        "title": "List Airbyte Connections",
-        "readOnlyHint": True,
-        "destructiveHint": False,
-        "idempotentHint": True,
-        "openWorldHint": True,
-    },
+    annotations=ToolAnnotations(
+        title="List Airbyte Connections",
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=True,
+    ),
 )
 async def airbyte_list_connections(params: ListConnectionsInput) -> str:
     """List connections (source-to-destination pipelines) in Airbyte.
@@ -138,7 +137,7 @@ async def airbyte_list_connections(params: ListConnectionsInput) -> str:
     """
     try:
         client = get_client()
-        query: dict = {
+        query: dict[str, Any] = {
             "limit": params.limit,
             "offset": params.offset,
             "includeDeleted": params.include_deleted,
@@ -161,13 +160,13 @@ async def airbyte_list_connections(params: ListConnectionsInput) -> str:
 
 @mcp.tool(
     name="airbyte_get_connection",
-    annotations={
-        "title": "Get Airbyte Connection",
-        "readOnlyHint": True,
-        "destructiveHint": False,
-        "idempotentHint": True,
-        "openWorldHint": True,
-    },
+    annotations=ToolAnnotations(
+        title="Get Airbyte Connection",
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=True,
+    ),
 )
 async def airbyte_get_connection(params: GetConnectionInput) -> str:
     """Get full details of a single connection by its UUID.

@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any
 
+from mcp.types import ToolAnnotations
 from pydantic import BaseModel, ConfigDict, Field
 
 from airbyte_mcp.client import get_client
@@ -24,15 +25,13 @@ from airbyte_mcp.server import mcp
 class ListSourcesInput(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
 
-    workspace_ids: Optional[list[str]] = Field(
+    workspace_ids: list[str] | None = Field(
         default=None,
         description="Filter by workspace UUIDs. Omit to list across all allowed workspaces.",
     )
     limit: int = Field(default=20, ge=1, le=100, description="Max results to return.")
     offset: int = Field(default=0, ge=0, description="Pagination offset.")
-    include_deleted: bool = Field(
-        default=False, description="Include soft-deleted sources."
-    )
+    include_deleted: bool = Field(default=False, description="Include soft-deleted sources.")
     response_format: ResponseFormat = Field(default=ResponseFormat.MARKDOWN)
 
 
@@ -48,7 +47,7 @@ class GetSourceInput(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-def _fmt_source(src: dict) -> str:
+def _fmt_source(src: dict[str, Any]) -> str:
     created = epoch_to_human(src.get("createdAt"))
     return (
         f"## {src.get('name', 'Unnamed')} (`{src.get('sourceId', '?')}`)\n"
@@ -65,13 +64,13 @@ def _fmt_source(src: dict) -> str:
 
 @mcp.tool(
     name="airbyte_list_sources",
-    annotations={
-        "title": "List Airbyte Sources",
-        "readOnlyHint": True,
-        "destructiveHint": False,
-        "idempotentHint": True,
-        "openWorldHint": True,
-    },
+    annotations=ToolAnnotations(
+        title="List Airbyte Sources",
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=True,
+    ),
 )
 async def airbyte_list_sources(params: ListSourcesInput) -> str:
     """List source connectors configured in Airbyte.
@@ -112,7 +111,7 @@ async def airbyte_list_sources(params: ListSourcesInput) -> str:
     """
     try:
         client = get_client()
-        query: dict = {
+        query: dict[str, Any] = {
             "limit": params.limit,
             "offset": params.offset,
             "includeDeleted": params.include_deleted,
@@ -135,13 +134,13 @@ async def airbyte_list_sources(params: ListSourcesInput) -> str:
 
 @mcp.tool(
     name="airbyte_get_source",
-    annotations={
-        "title": "Get Airbyte Source",
-        "readOnlyHint": True,
-        "destructiveHint": False,
-        "idempotentHint": True,
-        "openWorldHint": True,
-    },
+    annotations=ToolAnnotations(
+        title="Get Airbyte Source",
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=True,
+    ),
 )
 async def airbyte_get_source(params: GetSourceInput) -> str:
     """Get full details of a single source connector by its UUID.
