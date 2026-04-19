@@ -16,6 +16,7 @@ from airbyte_mcp.client import get_client
 from airbyte_mcp.errors import handle_api_error
 from airbyte_mcp.formatters import ResponseFormat, epoch_to_human, to_json
 from airbyte_mcp.server import mcp
+from airbyte_mcp.tools._log_utils import truncate_structured_logs
 
 # ---------------------------------------------------------------------------
 # Input models
@@ -41,9 +42,8 @@ class GetJobLogsInput(BaseModel):
         default=200,
         ge=1,
         le=5000,
-        description="Max log lines to return per attempt (from the end).",
+        description="Max structured log entries to return per attempt (from the end).",
     )
-    response_format: ResponseFormat = Field(default=ResponseFormat.MARKDOWN)
 
 
 class GetAttemptLogsInput(BaseModel):
@@ -55,9 +55,8 @@ class GetAttemptLogsInput(BaseModel):
         default=200,
         ge=1,
         le=5000,
-        description="Max log lines to return (from the end).",
+        description="Max structured log entries to return (from the end).",
     )
-    response_format: ResponseFormat = Field(default=ResponseFormat.MARKDOWN)
 
 
 _INTERNAL_API_HINT = (
@@ -143,25 +142,6 @@ def _fmt_attempt_stats(attempt: dict[str, Any]) -> str:
                 lines.append(_fmt_failure(f))
 
     return "\n".join(lines)
-
-
-def _extract_log_lines(
-    attempt_info: dict[str, Any],
-    tail_lines: int,
-) -> list[str]:
-    """Extract log lines from an AttemptInfoRead object."""
-    logs = attempt_info.get("logs")
-    if not logs:
-        return []
-    if isinstance(logs, dict):
-        lines: list[str] = logs.get("logLines", [])
-    elif isinstance(logs, list):
-        lines = list(logs)
-    else:
-        return []
-    if tail_lines and len(lines) > tail_lines:
-        return list(lines[-tail_lines:])
-    return lines
 
 
 # ---------------------------------------------------------------------------
@@ -258,9 +238,13 @@ async def airbyte_get_job_logs(params: GetJobLogsInput) -> str:
     """Get the actual log output for a job's sync attempts.
 
     Uses the internal Configuration API (POST /v1/jobs/get_debug_info)
-    to fetch raw log lines for each attempt. Logs can be very large,
-    so use tail_lines to limit output and attempt_number to focus on
-    a specific attempt.
+    to fetch structured log entries for each attempt.  Logs can be very
+    large, so use tail_lines to limit output and attempt_number to
+    focus on a specific attempt.
+
+    Always returns JSON — structured logs are best consumed as-is by
+    LLMs and scripts.  Each log entry contains timestamp, message,
+    level, logSource, and caller metadata.
 
     When to Use:
         - You need the raw log output to debug a sync failure.
@@ -274,13 +258,13 @@ async def airbyte_get_job_logs(params: GetJobLogsInput) -> str:
         - On Airbyte Cloud (internal API not available).
 
     Returns:
-        Log lines per attempt, limited to tail_lines from the end
-        of each attempt's log output.
+        JSON with structured log entries per attempt, truncated to
+        the last tail_lines entries.
 
     Examples:
-        Last 200 lines for all attempts:
+        Last 200 entries for all attempts:
             params = { "job_id": 12345 }
-        Last 500 lines for attempt 0 only:
+        Last 500 entries for attempt 0 only:
             params = { "job_id": 12345, "attempt_number": 0, "tail_lines": 500 }
     """
     try:
@@ -292,38 +276,8 @@ async def airbyte_get_job_logs(params: GetJobLogsInput) -> str:
             use_internal=True,
         )
         data = resp.json()
-
-        if params.response_format == ResponseFormat.JSON:
-            return to_json(data)
-
-        attempts = data.get("attempts", [])
-        lines = [f"# Logs for Job {params.job_id}", ""]
-
-        for i, attempt_info in enumerate(attempts):
-            if params.attempt_number is not None and i != params.attempt_number:
-                continue
-
-            attempt = attempt_info.get("attempt", {})
-            status = attempt.get("status", "?")
-            log_lines = _extract_log_lines(attempt_info, params.tail_lines)
-
-            lines.append(f"## Attempt {i} — **{status}**")
-            if log_lines:
-                logs = attempt_info.get("logs")
-                total = len(logs.get("logLines", [])) if isinstance(logs, dict) else len(logs or [])
-                if total > params.tail_lines:
-                    lines.append(f"*Showing last {params.tail_lines} of {total} lines*\n")
-                lines.append("```")
-                lines.extend(log_lines)
-                lines.append("```")
-            else:
-                lines.append("*No log lines available.*")
-            lines.append("")
-
-        if not attempts:
-            lines.append("*No attempts found for this job.*")
-
-        return "\n".join(lines)
+        truncate_structured_logs(data, params.tail_lines, params.attempt_number)
+        return to_json(data)
     except Exception as exc:
         msg = handle_api_error(exc)
         if "connect" in msg.lower() or "404" in msg:
@@ -345,8 +299,11 @@ async def airbyte_get_attempt_logs(params: GetAttemptLogsInput) -> str:
     """Get logs for a specific attempt of a job.
 
     Uses the internal Configuration API (POST /v1/attempt/get_for_job)
-    to fetch log lines for exactly one attempt. More efficient than
-    airbyte_get_job_logs when you know which attempt failed.
+    to fetch structured log entries for exactly one attempt.  More
+    efficient than airbyte_get_job_logs when you know which attempt
+    failed.
+
+    Always returns JSON — structured logs are best consumed as-is.
 
     When to Use:
         - A job had multiple attempts and you want logs for a specific
@@ -359,7 +316,8 @@ async def airbyte_get_attempt_logs(params: GetAttemptLogsInput) -> str:
         - On Airbyte Cloud (internal API not available).
 
     Returns:
-        Log lines for the specified attempt.
+        JSON with attempt metadata and structured log entries,
+        truncated to the last tail_lines entries.
 
     Examples:
         params = { "job_id": 12345, "attempt_number": 0 }
@@ -377,34 +335,8 @@ async def airbyte_get_attempt_logs(params: GetAttemptLogsInput) -> str:
             use_internal=True,
         )
         data = resp.json()
-
-        if params.response_format == ResponseFormat.JSON:
-            return to_json(data)
-
-        attempt = data.get("attempt", {})
-        status = attempt.get("status", "?")
-        log_lines = _extract_log_lines(data, params.tail_lines)
-
-        lines = [
-            f"# Attempt {params.attempt_number} of Job {params.job_id} — **{status}**",
-            "",
-        ]
-
-        lines.append(_fmt_attempt_stats(attempt))
-        lines.append("")
-
-        if log_lines:
-            all_logs = data.get("logs")
-            total = len(all_logs.get("logLines", [])) if isinstance(all_logs, dict) else len(all_logs or [])
-            if total > params.tail_lines:
-                lines.append(f"*Showing last {params.tail_lines} of {total} lines*\n")
-            lines.append("```")
-            lines.extend(log_lines)
-            lines.append("```")
-        else:
-            lines.append("*No log lines available for this attempt.*")
-
-        return "\n".join(lines)
+        truncate_structured_logs(data, params.tail_lines)
+        return to_json(data)
     except Exception as exc:
         msg = handle_api_error(exc)
         if "connect" in msg.lower() or "404" in msg:

@@ -6,9 +6,11 @@ Lets any MCP-compatible client (Cursor, Claude Desktop, Claude Code, MCP Inspect
 
 ## Features
 
-- 11 read-only tools covering workspaces, sources, destinations, connections, and jobs
+- 30 tools covering workspaces, sources, destinations, connections, jobs, job logs, tags, streams, and connector definitions
+- Read and write operations for core resources (create, update, delete)
+- Job diagnostics via the internal Configuration API (self-managed): detailed failure reasons, per-stream stats, and structured logs
 - Automatic token exchange with in-memory caching and transparent 401 retry
-- Markdown and JSON response formats on every tool
+- Markdown and JSON response formats on summary tools; JSON-only for log tools
 - Pagination support (limit/offset) on all list tools
 - Two transport modes: **stdio** (local) and **streamable HTTP** (remote)
 - Works with self-managed Airbyte (abctl) and Airbyte Cloud
@@ -17,17 +19,47 @@ Lets any MCP-compatible client (Cursor, Claude Desktop, Claude Code, MCP Inspect
 
 | Tool | Description |
 |---|---|
+| **Health** | |
 | `airbyte_health_check` | Ping the Airbyte API |
+| **Workspaces** | |
 | `airbyte_list_workspaces` | List workspaces with pagination |
 | `airbyte_get_workspace` | Get workspace details by ID |
+| **Sources** | |
 | `airbyte_list_sources` | List source connectors (filter by workspace) |
 | `airbyte_get_source` | Get source details by ID |
+| `airbyte_create_source` | Create a new source connector |
+| `airbyte_update_source` | Update an existing source |
+| **Destinations** | |
 | `airbyte_list_destinations` | List destination connectors (filter by workspace) |
 | `airbyte_get_destination` | Get destination details by ID |
+| `airbyte_create_destination` | Create a new destination connector |
+| `airbyte_update_destination` | Update an existing destination |
+| **Connections** | |
 | `airbyte_list_connections` | List connections / pipelines (filter by workspace) |
 | `airbyte_get_connection` | Get connection details including stream config |
+| `airbyte_create_connection` | Create a new connection (pipeline) |
+| `airbyte_update_connection` | Update an existing connection |
+| **Jobs** | |
 | `airbyte_list_jobs` | List jobs (filter by connection, type, status, dates) |
 | `airbyte_get_job` | Get job details (status, duration, bytes/rows synced) |
+| `airbyte_trigger_sync` | Trigger a sync or reset job |
+| `airbyte_cancel_job` | Cancel a running job |
+| **Job Logs (Internal API)** | |
+| `airbyte_get_job_details` | Per-attempt stats, failure reasons, and stacktraces |
+| `airbyte_get_job_logs` | Structured log entries for all attempts |
+| `airbyte_get_attempt_logs` | Structured log entries for a specific attempt |
+| **Streams** | |
+| `airbyte_get_stream_properties` | Get stream properties for a source/destination pair |
+| **Tags** | |
+| `airbyte_list_tags` | List tags |
+| `airbyte_create_tag` | Create a tag |
+| `airbyte_update_tag` | Update a tag |
+| `airbyte_delete_tag` | Delete a tag |
+| **Connector Definitions** | |
+| `airbyte_list_source_definitions` | List source connector definitions |
+| `airbyte_get_source_definition` | Get a source connector definition |
+| `airbyte_list_destination_definitions` | List destination connector definitions |
+| `airbyte_get_destination_definition` | Get a destination connector definition |
 
 See [docs/endpoints.md](docs/endpoints.md) for the full Airbyte API endpoint checklist.
 

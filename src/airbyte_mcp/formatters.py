@@ -20,6 +20,8 @@ def to_json(data: Any) -> str:
 def epoch_to_human(ts: int | float | None) -> str:
     if ts is None:
         return "N/A"
+    if ts > 1e11:
+        ts = ts / 1000
     return datetime.fromtimestamp(ts, tz=UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
 
 

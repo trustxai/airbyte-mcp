@@ -2,7 +2,7 @@
 
 ## Overview
 
-`airbyte-mcp` is a Python MCP server built with [FastMCP](https://github.com/modelcontextprotocol/python-sdk) (the official MCP Python SDK). It exposes read-only tools that wrap the [Airbyte Public API](https://reference.airbyte.com/reference/getting-started).
+`airbyte-mcp` is a Python MCP server built with [FastMCP](https://github.com/modelcontextprotocol/python-sdk) (the official MCP Python SDK). It exposes read and write tools that wrap the [Airbyte Public API](https://reference.airbyte.com/reference/getting-started) and the internal Configuration API (self-managed only) for job diagnostics.
 
 ## High-Level Flow
 
@@ -54,12 +54,17 @@ src/airbyte_mcp/
 ├── formatters.py        # Markdown / JSON response helpers
 └── tools/
     ├── __init__.py      # register_all(mcp)
+    ├── _log_utils.py    # Structured log truncation helpers
     ├── health.py        # airbyte_health_check
     ├── workspaces.py    # airbyte_list_workspaces, airbyte_get_workspace
-    ├── sources.py       # airbyte_list_sources, airbyte_get_source
-    ├── destinations.py  # airbyte_list_destinations, airbyte_get_destination
-    ├── connections.py   # airbyte_list_connections, airbyte_get_connection
-    └── jobs.py          # airbyte_list_jobs, airbyte_get_job
+    ├── sources.py       # airbyte_list_sources, airbyte_get_source, create, update
+    ├── destinations.py  # airbyte_list_destinations, airbyte_get_destination, create, update
+    ├── connections.py   # airbyte_list_connections, airbyte_get_connection, create, update
+    ├── jobs.py          # airbyte_list_jobs, airbyte_get_job, trigger_sync, cancel_job
+    ├── job_logs.py      # airbyte_get_job_details, airbyte_get_job_logs, airbyte_get_attempt_logs
+    ├── streams.py       # airbyte_get_stream_properties
+    ├── tags.py          # airbyte_list_tags, airbyte_create_tag, update, delete
+    └── definitions.py   # source/destination definition listing and lookup
 ```
 
 ## Token Lifecycle
