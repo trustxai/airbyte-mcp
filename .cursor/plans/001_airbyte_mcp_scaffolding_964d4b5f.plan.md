@@ -4,31 +4,30 @@ overview: Build `airbyte_mcp`, a FastMCP-based Python MCP server that wraps the 
 todos:
   - id: scaffold_project
     content: Create src/airbyte_mcp package layout, update pyproject.toml with dependencies + [project.scripts] entry points, refresh .gitignore, add .env.example, remove placeholder main.py
-    status: pending
+    status: completed
   - id: core_runtime
     content: Implement config.py (pydantic-settings), client.py (AirbyteClient with token exchange + cache + 401 retry), errors.py, formatters.py, server.py (FastMCP + main_stdio/main_http)
-    status: pending
+    status: completed
   - id: implement_tools
     content: Implement 11 read-only tools across tools/{health,workspaces,sources,destinations,connections,jobs}.py with Pydantic input models, docstrings, and read-only annotations; register via tools/__init__.py
-    status: pending
+    status: completed
   - id: scripts_folder
     content: Add scripts/get_token.py, scripts/list_workspaces.py, scripts/mcp_stdio_smoke.py + scripts/README.md
-    status: pending
+    status: completed
   - id: docs_folder
     content: Write docs/CONTRIBUTING.md, docs/SECURITY.md, docs/CHANGELOG.md (governance, UPPERCASE) and docs/endpoints.md, docs/authentication.md, docs/architecture.md (mermaid), docs/local-setup.md (content, lowercase kebab-case)
-    status: pending
+    status: completed
   - id: readme
     content: Rewrite README.md with intro, features, prerequisites, env setup, stdio + HTTP + Docker run instructions, tool list, links to docs/
-    status: pending
+    status: completed
   - id: docker
     content: Add Dockerfile (stdio, default CMD airbyte-mcp) and Dockerfile.http (streamable HTTP, EXPOSE 8000) plus .dockerignore
-    status: pending
+    status: completed
   - id: smoke_test
     content: Run uv sync, then `uv run airbyte-mcp --help` equivalent via MCP Inspector (`uv run mcp dev src/airbyte_mcp/server.py`) and the stdio smoke script against the user's local abctl instance to confirm tools return data
-    status: pending
+    status: completed
 isProject: false
 ---
-
 
 # Airbyte MCP Server — Implementation Plan
 

@@ -1,7 +1,24 @@
 [project]
 name = "airbyte-mcp"
 version = "0.1.0"
-description = "Add your description here"
+description = "MCP server for the Airbyte Public API (self-managed / Cloud)."
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "mcp[cli]>=1.1.0",
+    "httpx>=0.27",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.4",
+    "python-dotenv>=1.0",
+]
+
+[project.scripts]
+airbyte-mcp = "airbyte_mcp.server:main_stdio"
+airbyte-mcp-http = "airbyte_mcp.server:main_http"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/airbyte_mcp"]
