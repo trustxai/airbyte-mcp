@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.1.0 (2026-04-19)
+
+
+### Features
+
+* initial project configuration and CI/CD setup for Airbyte MCP server ([80e3e98](https://github.com/trustxai/airbyte-mcp/commit/80e3e987736128dd4173528de8dce312407e6081))
+
 ## [Unreleased]
 
 ## [0.1.0] - 2026-04-19
