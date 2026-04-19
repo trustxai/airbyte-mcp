@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0](https://github.com/trustxai/airbyte-mcp/compare/v0.1.1...v0.2.0) (2026-04-19)
+
+
+### Features
+
+* expand MCP server with CRUD, job logs, tags, streams, and definitions ([7b58e87](https://github.com/trustxai/airbyte-mcp/commit/7b58e875e60645f6a0c3fdb50bd22238b019458e))
+* expand MCP server with CRUD, job logs, tags, streams, and definitions ([908c272](https://github.com/trustxai/airbyte-mcp/commit/908c2728893628c86231169191445e34bb9fd53a))
+
+
+### Bug Fixes
+
+* handle list-type logs in job log tools to prevent AttributeError ([9514f1e](https://github.com/trustxai/airbyte-mcp/commit/9514f1efd51784f34f485488d840fd9a3113bf9e))
+
 ## [0.1.1](https://github.com/trustxai/airbyte-mcp/compare/v0.1.0...v0.1.1) (2026-04-19)
 
 
