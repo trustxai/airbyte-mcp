@@ -105,8 +105,10 @@ Implemented endpoints are marked `[x]`, pending ones `[ ]`.
 
 - [x] `POST /api/v1/jobs/get` — Get job details with attempt stats and failure summaries
 - [x] `POST /api/v1/jobs/get_debug_info` — Get job debug info with full logs
+- [x] `POST /api/v1/jobs/list` — List ALL job types (sync, reset, refresh, clear, etc.)
 - [x] `POST /api/v1/attempt/get_for_job` — Get attempt logs for a specific attempt
+- [x] `POST /api/v1/connections/refresh` — Trigger a per-stream refresh
 
 ---
 
-**Summary**: 30 / ~50+ endpoints implemented (read + write for core resources, internal API for logs).
+**Summary**: 32 / ~50+ endpoints implemented (read + write for core resources, internal API for logs and refresh).

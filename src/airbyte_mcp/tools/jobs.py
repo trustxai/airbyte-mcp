@@ -30,7 +30,12 @@ class ListJobsInput(BaseModel):
     )
     job_type: str | None = Field(
         default=None,
-        description="Filter by job type: 'sync' or 'reset'.",
+        description=(
+            "Filter by job type: 'sync', 'reset', 'refresh', or 'clear'. "
+            "Note: 'refresh' and 'clear' require Airbyte >= 0.63 and may not "
+            "appear on older deployments. When omitted, defaults to sync+reset "
+            "on most Airbyte versions."
+        ),
     )
     status: str | None = Field(
         default=None,
@@ -66,7 +71,47 @@ class TriggerSyncInput(BaseModel):
     connection_id: str = Field(..., min_length=1, description="UUID of the connection to sync.")
     job_type: str = Field(
         default="sync",
-        description="Job type: 'sync' to replicate data, or 'reset' to clear and re-sync.",
+        description=(
+            "Job type: 'sync' to replicate data, or 'reset' to clear and "
+            "re-sync. To trigger a refresh (non-destructive re-read), use "
+            "airbyte_trigger_refresh instead."
+        ),
+    )
+    response_format: ResponseFormat = Field(default=ResponseFormat.MARKDOWN)
+
+
+class RefreshStreamDescriptor(BaseModel):
+    """Identifies a single stream to refresh."""
+
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    name: str = Field(..., min_length=1, description="Stream name (e.g. 'oe-trailer').")
+    namespace: str | None = Field(
+        default=None,
+        description="Stream namespace. Omit if the stream has no namespace.",
+    )
+
+
+class TriggerRefreshInput(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    connection_id: str = Field(
+        ...,
+        min_length=1,
+        description="UUID of the connection containing the streams to refresh.",
+    )
+    streams: list[RefreshStreamDescriptor] = Field(
+        ...,
+        min_length=1,
+        description="One or more streams to refresh. Each needs at least a 'name'.",
+    )
+    refresh_type: str = Field(
+        default="merge",
+        description=(
+            "Refresh strategy: 'merge' retains previous records and merges "
+            "new data (Refresh and Retain Records); 'truncate' replaces "
+            "destination data with the fresh read (Refresh and Remove Records)."
+        ),
     )
     response_format: ResponseFormat = Field(default=ResponseFormat.MARKDOWN)
 
@@ -123,29 +168,34 @@ def _fmt_job(job: dict[str, Any]) -> str:
     ),
 )
 async def airbyte_list_jobs(params: ListJobsInput) -> str:
-    """List sync and reset jobs with rich filtering options.
+    """List sync, reset, refresh, and clear jobs with rich filtering.
 
-    Jobs represent individual sync or reset executions. Every time a
-    connection runs (manually or on schedule), Airbyte creates a job
-    that tracks status, duration, bytes synced, and rows synced.
+    Jobs represent individual executions. Every time a connection runs
+    (manually or on schedule), Airbyte creates a job that tracks
+    status, duration, bytes synced, and rows synced.
 
     When to Use:
         - Check recent sync activity for a specific connection.
         - Find failed or running jobs across workspaces.
         - Audit sync volume (bytes/rows) over a date range.
         - Monitor whether scheduled syncs are executing on time.
+        - Check the status of a refresh or clear job.
 
     When NOT to Use:
         - If you already have a job ID, use airbyte_get_job for full
           details.
         - To see pipeline definitions (schedule, streams), use
           airbyte_get_connection instead.
+        - If refresh/clear jobs are not returned (older Airbyte
+          versions), use airbyte_list_jobs_internal instead.
 
     Filters:
         All filters are optional and combinable:
         - connection_id: restrict to one pipeline.
         - workspace_ids: restrict to specific workspaces.
-        - job_type: "sync" or "reset".
+        - job_type: "sync", "reset", "refresh", or "clear".
+          Note: "refresh" and "clear" require Airbyte >= 0.63.
+          When omitted, most versions default to sync+reset only.
         - status: pending, running, incomplete, failed, succeeded,
           or cancelled.
         - created_at_start / created_at_end: ISO-8601 date range
@@ -168,6 +218,8 @@ async def airbyte_list_jobs(params: ListJobsInput) -> str:
             params = { "connection_id": "a1b2c3d4-...", "status": "failed", "limit": 5 }
         All sync jobs in the last 7 days:
             params = { "job_type": "sync", "created_at_start": "2024-06-01T00:00:00Z" }
+        Refresh jobs for a connection:
+            params = { "connection_id": "a1b2c3d4-...", "job_type": "refresh" }
         Latest 3 jobs, newest first:
             params = { "limit": 3, "order_by": "createdAt|DESC" }
     """
@@ -283,6 +335,10 @@ async def airbyte_trigger_sync(params: TriggerSyncInput) -> str:
     When NOT to Use:
         - The connection is already running a sync (check with
           airbyte_list_jobs first).
+        - If you need a non-destructive refresh (re-read without
+          clearing the destination), use airbyte_trigger_refresh
+          instead. Resets drop destination data first, which causes
+          downtime; refreshes swap data only on success.
 
     Returns:
         The newly created job with its jobId and initial status.
@@ -344,3 +400,117 @@ async def airbyte_cancel_job(params: CancelJobInput) -> str:
         return _fmt_job(data)
     except Exception as exc:
         return handle_api_error(exc)
+
+
+_INTERNAL_API_HINT = (
+    "This tool requires the Airbyte Configuration API (self-managed only). "
+    "If you are using Airbyte Cloud, this endpoint is not available."
+)
+
+
+@mcp.tool(
+    name="airbyte_trigger_refresh",
+    annotations=ToolAnnotations(
+        title="Trigger Airbyte Stream Refresh (Internal API)",
+        readOnlyHint=False,
+        destructiveHint=True,
+        idempotentHint=False,
+        openWorldHint=True,
+    ),
+)
+async def airbyte_trigger_refresh(params: TriggerRefreshInput) -> str:
+    """Trigger a refresh for one or more streams in a connection.
+
+    Uses the internal Configuration API to start a refresh job. Unlike
+    a reset (which drops destination data first), a refresh re-reads
+    from source and swaps/merges data only on success — no downtime.
+
+    Requires a self-managed Airbyte deployment where the Configuration
+    API (/api/v1) is accessible. NOT available on Airbyte Cloud.
+
+    When to Use:
+        - A stream has data gaps from a connector bug and you want to
+          re-read without clearing the destination table first.
+        - You need to reconcile stale rows in an incremental-append
+          stream without risking downtime from a full reset.
+        - Source data was corrected and you want to pull a fresh copy
+          while the old data remains queryable.
+
+    When NOT to Use:
+        - On Airbyte Cloud (internal API not available).
+        - If a full reset is acceptable, use airbyte_trigger_sync with
+          job_type='reset' instead (simpler, public API).
+        - If the connection is already running a job, wait for it to
+          finish first.
+
+    Refresh Types:
+        - 'merge' (default): Retain previous records and merge new
+          data. Old and new generations coexist, distinguished by
+          _airbyte_generation_id. Safest option.
+        - 'truncate': Replace destination data with the fresh read.
+          Only newly synced rows appear after completion.
+
+    Returns:
+        The created job with its jobId and initial status.
+
+    Examples:
+        Refresh a single stream (merge):
+            params = {
+                "connection_id": "a1b2c3d4-...",
+                "streams": [{"name": "oe-trailer"}]
+            }
+        Refresh multiple streams (truncate):
+            params = {
+                "connection_id": "a1b2c3d4-...",
+                "streams": [
+                    {"name": "oe-trailer"},
+                    {"name": "arinvitm", "namespace": "public"}
+                ],
+                "refresh_type": "truncate"
+            }
+    """
+    try:
+        client = get_client()
+
+        stream_descriptors = []
+        for s in params.streams:
+            descriptor: dict[str, str] = {"streamName": s.name}
+            if s.namespace is not None:
+                descriptor["streamNamespace"] = s.namespace
+            stream_descriptors.append(descriptor)
+
+        refresh_mode = "Merge" if params.refresh_type.lower() == "merge" else "Truncate"
+
+        body: dict[str, Any] = {
+            "connectionId": params.connection_id,
+            "refreshMode": refresh_mode,
+            "streams": stream_descriptors,
+        }
+        resp = await client.request(
+            "POST",
+            "/connections/refresh",
+            json_body=body,
+            use_internal=True,
+        )
+        data = resp.json()
+
+        if params.response_format == ResponseFormat.JSON:
+            return to_json(data)
+
+        job_id = data.get("jobId", data.get("job", {}).get("id", "?"))
+        status = data.get("status", data.get("job", {}).get("status", "?"))
+        stream_names = ", ".join(s.name for s in params.streams)
+        return (
+            f"## Refresh triggered\n"
+            f"- **Job ID**: {job_id}\n"
+            f"- **Status**: {status}\n"
+            f"- **Refresh type**: {params.refresh_type}\n"
+            f"- **Streams**: {stream_names}\n"
+            f"- **Connection**: {params.connection_id}\n\n"
+            f"Use `airbyte_get_job_details` with the job ID to monitor progress."
+        )
+    except Exception as exc:
+        msg = handle_api_error(exc)
+        if "connect" in msg.lower() or "404" in msg or "405" in msg:
+            return f"{msg}\n\n{_INTERNAL_API_HINT}"
+        return msg
