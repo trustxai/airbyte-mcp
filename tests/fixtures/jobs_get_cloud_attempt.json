@@ -1,0 +1,11 @@
+{
+  "job": { "id": 555, "status": "succeeded" },
+  "attempts": [
+    {
+      "attempt": { "id": 7001, "attemptNumber": 0, "status": "succeeded" },
+      "logs": {
+        "logLines": ["cloud-line-1", "cloud-line-2", "cloud-line-3"]
+      }
+    }
+  ]
+}

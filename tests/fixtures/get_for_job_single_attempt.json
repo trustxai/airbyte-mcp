@@ -1,0 +1,22 @@
+{
+  "attempt": { "id": 8001, "attemptNumber": 0, "status": "succeeded" },
+  "logs": {
+    "events": [
+      {
+        "timestamp": "2024-01-01T00:00:00Z",
+        "level": "INFO",
+        "message": "started"
+      },
+      {
+        "timestamp": "2024-01-01T00:00:01Z",
+        "level": "INFO",
+        "message": "finished"
+      },
+      {
+        "timestamp": "2024-01-01T00:00:02Z",
+        "level": "WARN",
+        "message": "cleanup"
+      }
+    ]
+  }
+}

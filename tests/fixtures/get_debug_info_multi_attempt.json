@@ -1,0 +1,21 @@
+{
+  "job": { "id": 12345, "status": "failed" },
+  "attempts": [
+    {
+      "attempt": { "id": 9001, "attemptNumber": 0, "status": "failed" },
+      "logs": {
+        "logLines": ["line-a0", "line-a1", "line-a2", "line-a3", "line-a4"]
+      }
+    },
+    {
+      "attempt": { "id": 9002, "attemptNumber": 1, "status": "failed" },
+      "logs": {
+        "structuredLogs": [
+          { "timestamp": 1, "message": "retry-start" },
+          { "timestamp": 2, "message": "retry-error" },
+          { "timestamp": 3, "message": "retry-end" }
+        ]
+      }
+    }
+  ]
+}

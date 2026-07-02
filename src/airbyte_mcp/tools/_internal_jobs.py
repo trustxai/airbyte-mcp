@@ -7,8 +7,15 @@ from typing import Any
 from airbyte_mcp.formatters import epoch_to_human
 
 INTERNAL_API_HINT = (
-    "This tool requires the Airbyte Configuration API (self-managed only). "
-    "If you are using Airbyte Cloud, this endpoint is not available."
+    "This tool requires the Airbyte Configuration API on a self-managed deployment "
+    "(abctl / OSS). If you are using Airbyte Cloud, use airbyte_get_cloud_sync_logs "
+    "for full-text sync logs instead."
+)
+
+CLOUD_LOGS_HINT = (
+    "This tool requires Airbyte Cloud. If you are running self-managed Airbyte "
+    "(abctl / OSS), use airbyte_get_job_logs or airbyte_get_attempt_logs for "
+    "structured diagnostics via the internal Configuration API instead."
 )
 
 TERMINAL_JOB_STATUSES = frozenset({"succeeded", "failed", "cancelled", "incomplete"})
