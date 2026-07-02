@@ -65,6 +65,7 @@ class AirbyteClient:
         params: dict[str, Any] | None = None,
         json_body: dict[str, Any] | None = None,
         use_internal: bool = False,
+        timeout: float | None = None,
         _retried: bool = False,
     ) -> httpx.Response:
         """Execute an authenticated request against the Airbyte API.
@@ -73,14 +74,17 @@ class AirbyteClient:
             use_internal: When *True*, route to the internal Configuration
                 API (``/api/v1``) instead of the public API. The internal
                 API is only available on self-managed Airbyte deployments.
+            timeout: Request timeout in seconds. Defaults to
+                ``airbyte_request_timeout_seconds`` from settings.
 
         Automatically refreshes the token on 401 (once).
         """
         settings = get_settings()
         base = settings.resolved_internal_api_url if use_internal else settings.airbyte_api_url
         url = f"{base}/{path.lstrip('/')}"
+        effective_timeout = timeout if timeout is not None else settings.airbyte_request_timeout_seconds
 
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=effective_timeout) as client:
             token = await self._ensure_token(client)
             headers = {
                 "accept": "application/json",
@@ -104,6 +108,7 @@ class AirbyteClient:
                     params=params,
                     json_body=json_body,
                     use_internal=use_internal,
+                    timeout=timeout,
                     _retried=True,
                 )
 

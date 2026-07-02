@@ -13,6 +13,7 @@ from mcp.types import ToolAnnotations
 from pydantic import BaseModel, ConfigDict, Field
 
 from airbyte_mcp.client import get_client
+from airbyte_mcp.config import get_settings
 from airbyte_mcp.errors import handle_api_error
 from airbyte_mcp.formatters import ResponseFormat, epoch_to_human, paginated_response, to_json
 from airbyte_mcp.server import mcp
@@ -204,7 +205,7 @@ async def airbyte_list_jobs_internal(params: ListJobsInternalInput) -> str:
         - Monitor a running refresh to see if it has completed.
 
     When NOT to Use:
-        - On Airbyte Cloud (internal API not available).
+        - On Airbyte Cloud — use airbyte_get_cloud_sync_logs for full-text logs.
         - If you only need sync/reset jobs, airbyte_list_jobs is
           simpler and works on Cloud too.
 
@@ -310,7 +311,7 @@ async def airbyte_get_job_details(params: GetJobDetailsInput) -> str:
         - For a quick status check, use airbyte_get_job (public API).
         - For actual log lines, use airbyte_get_job_logs or
           airbyte_get_attempt_logs.
-        - On Airbyte Cloud (internal API not available).
+        - On Airbyte Cloud — use airbyte_get_cloud_sync_logs for full-text logs.
 
     Returns:
         Job metadata plus a section per attempt with: status, timing,
@@ -388,7 +389,7 @@ async def airbyte_get_job_logs(params: GetJobLogsInput) -> str:
 
     When NOT to Use:
         - For structured failure info, use airbyte_get_job_details.
-        - On Airbyte Cloud (internal API not available).
+        - On Airbyte Cloud — use airbyte_get_cloud_sync_logs for full-text logs.
 
     Returns:
         JSON with structured log entries per attempt, truncated to
@@ -402,11 +403,13 @@ async def airbyte_get_job_logs(params: GetJobLogsInput) -> str:
     """
     try:
         client = get_client()
+        settings = get_settings()
         resp = await client.request(
             "POST",
             "/jobs/get_debug_info",
             json_body={"id": params.job_id},
             use_internal=True,
+            timeout=settings.airbyte_internal_log_timeout_seconds,
         )
         data = resp.json()
         truncate_structured_logs(data, params.tail_lines, params.attempt_number)
@@ -446,7 +449,7 @@ async def airbyte_get_attempt_logs(params: GetAttemptLogsInput) -> str:
 
     When NOT to Use:
         - If you want logs for all attempts, use airbyte_get_job_logs.
-        - On Airbyte Cloud (internal API not available).
+        - On Airbyte Cloud — use airbyte_get_cloud_sync_logs for full-text logs.
 
     Returns:
         JSON with attempt metadata and structured log entries,
@@ -458,6 +461,7 @@ async def airbyte_get_attempt_logs(params: GetAttemptLogsInput) -> str:
     """
     try:
         client = get_client()
+        settings = get_settings()
         resp = await client.request(
             "POST",
             "/attempt/get_for_job",
@@ -466,6 +470,7 @@ async def airbyte_get_attempt_logs(params: GetAttemptLogsInput) -> str:
                 "attemptNumber": params.attempt_number,
             },
             use_internal=True,
+            timeout=settings.airbyte_internal_log_timeout_seconds,
         )
         data = resp.json()
         truncate_structured_logs(data, params.tail_lines)

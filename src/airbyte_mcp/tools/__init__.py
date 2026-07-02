@@ -11,6 +11,7 @@ if TYPE_CHECKING:
 def register_all(mcp: FastMCP) -> None:
     """Import every tool module so their @mcp.tool decorators execute."""
     from airbyte_mcp.tools import (  # noqa: F401
+        cloud_logs,
         connections,
         definitions,
         destinations,
