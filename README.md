@@ -270,10 +270,12 @@ Add to `claude_desktop_config.json`:
 ### Claude Code
 
 ```bash
-claude mcp add airbyte \
+claude mcp add \
   --env AIRBYTE_API_URL=http://localhost:8000/api/public/v1 \
   --env AIRBYTE_CLIENT_ID=<your-client-id> \
   --env AIRBYTE_CLIENT_SECRET=<your-client-secret> \
+  --transport stdio \
+  airbyte \
   -- uvx airbyte-mcp
 ```
 
