@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0](https://github.com/trustxai/airbyte-mcp/compare/v0.2.2...v0.3.0) (2026-07-02)
+
+
+### Features
+
+* add refresh job tools (trigger + list) via internal API ([2bd29be](https://github.com/trustxai/airbyte-mcp/commit/2bd29be8e4942526c3579a6e678c9979f5381f11))
+* add refresh/clear/wait job tools with pytest suite ([d7b3d2a](https://github.com/trustxai/airbyte-mcp/commit/d7b3d2afbc0c35984fa74ab5501984402e050c70))
+* refresh/clear/wait job tools and pytest suite ([6d215b4](https://github.com/trustxai/airbyte-mcp/commit/6d215b4098f4460d3482bbf7881d240555d137ed))
+
 ## [0.2.2](https://github.com/trustxai/airbyte-mcp/compare/v0.2.1...v0.2.2) (2026-04-20)
 
 
