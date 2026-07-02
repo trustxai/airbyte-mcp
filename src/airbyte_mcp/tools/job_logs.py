@@ -14,13 +14,44 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from airbyte_mcp.client import get_client
 from airbyte_mcp.errors import handle_api_error
-from airbyte_mcp.formatters import ResponseFormat, epoch_to_human, to_json
+from airbyte_mcp.formatters import ResponseFormat, epoch_to_human, paginated_response, to_json
 from airbyte_mcp.server import mcp
+from airbyte_mcp.tools._internal_jobs import (
+    INTERNAL_API_HINT,
+    fmt_internal_job,
+)
 from airbyte_mcp.tools._log_utils import truncate_structured_logs
 
 # ---------------------------------------------------------------------------
 # Input models
 # ---------------------------------------------------------------------------
+
+
+class ListJobsInternalInput(BaseModel):
+    """Input for listing jobs via the internal Configuration API."""
+
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    connection_id: str = Field(
+        ...,
+        min_length=1,
+        description="UUID of the connection to list jobs for.",
+    )
+    config_types: list[str] | None = Field(
+        default=None,
+        description=(
+            "Filter by config/job types. Common values: 'sync', "
+            "'reset_connection', 'refresh', 'clear'. When omitted, "
+            "returns ALL job types including refresh and clear."
+        ),
+    )
+    status: str | None = Field(
+        default=None,
+        description="Filter by status: pending, running, incomplete, failed, succeeded, cancelled.",
+    )
+    limit: int = Field(default=20, ge=1, le=100, description="Max results to return.")
+    offset: int = Field(default=0, ge=0, description="Pagination offset.")
+    response_format: ResponseFormat = Field(default=ResponseFormat.MARKDOWN)
 
 
 class GetJobDetailsInput(BaseModel):
@@ -59,13 +90,10 @@ class GetAttemptLogsInput(BaseModel):
     )
 
 
-_INTERNAL_API_HINT = (
-    "This tool requires the Airbyte Configuration API (self-managed only). "
-    "If you are using Airbyte Cloud, this endpoint is not available."
-)
+_INTERNAL_API_HINT = INTERNAL_API_HINT
 
 # ---------------------------------------------------------------------------
-# Formatters
+# Tools
 # ---------------------------------------------------------------------------
 
 
@@ -150,6 +178,108 @@ def _fmt_attempt_stats(attempt: dict[str, Any]) -> str:
 
 
 @mcp.tool(
+    name="airbyte_list_jobs_internal",
+    annotations=ToolAnnotations(
+        title="List Airbyte Jobs — All Types (Internal API)",
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=True,
+    ),
+)
+async def airbyte_list_jobs_internal(params: ListJobsInternalInput) -> str:
+    """List ALL job types for a connection, including refresh and clear.
+
+    Uses the internal Configuration API (POST /v1/jobs/list) which
+    returns every job type: sync, reset_connection, refresh, clear,
+    and more. The public API's airbyte_list_jobs only returns sync
+    and reset on most Airbyte versions.
+
+    When to Use:
+        - Check the status of a refresh job triggered from the UI or
+          via airbyte_trigger_refresh.
+        - See clear jobs that aren't visible in the public API.
+        - Get a complete job history for a connection including all
+          job types.
+        - Monitor a running refresh to see if it has completed.
+
+    When NOT to Use:
+        - On Airbyte Cloud (internal API not available).
+        - If you only need sync/reset jobs, airbyte_list_jobs is
+          simpler and works on Cloud too.
+
+    Config Types (filter):
+        Common values for config_types:
+        - "sync" — regular incremental or full-refresh syncs
+        - "reset_connection" — connection resets
+        - "refresh" — stream refreshes (merge or truncate)
+        - "clear" — stream clears
+        When omitted, returns ALL types.
+
+    Returns:
+        Paginated list of jobs with per-attempt stats. Each entry
+        shows config type, status, timestamps, and stream-level
+        record counts when available.
+
+    Examples:
+        All jobs for a connection:
+            params = { "connection_id": "a1b2c3d4-..." }
+        Only refresh jobs:
+            params = { "connection_id": "a1b2c3d4-...", "config_types": ["refresh"] }
+        Failed jobs of any type:
+            params = { "connection_id": "a1b2c3d4-...", "status": "failed" }
+    """
+    try:
+        client = get_client()
+
+        config_types = params.config_types or [
+            "sync",
+            "reset_connection",
+            "refresh",
+            "clear",
+        ]
+
+        body: dict[str, Any] = {
+            "configTypes": config_types,
+            "configId": params.connection_id,
+            "pagination": {
+                "pageSize": params.limit,
+                "rowOffset": params.offset,
+            },
+        }
+        if params.status:
+            body["statuses"] = [params.status]
+
+        resp = await client.request(
+            "POST",
+            "/jobs/list",
+            json_body=body,
+            use_internal=True,
+        )
+        data = resp.json()
+        jobs = data.get("jobs", [])
+        total = data.get("totalJobCount")
+
+        if params.response_format == ResponseFormat.JSON:
+            return to_json(data)
+
+        return paginated_response(
+            items=jobs,
+            total=total,
+            limit=params.limit,
+            offset=params.offset,
+            fmt=params.response_format,
+            item_formatter=fmt_internal_job,
+            title="Airbyte Jobs (Internal API)",
+        )
+    except Exception as exc:
+        msg = handle_api_error(exc)
+        if "connect" in msg.lower() or "404" in msg:
+            return f"{msg}\n\n{_INTERNAL_API_HINT}"
+        return msg
+
+
+@mcp.tool(
     name="airbyte_get_job_details",
     annotations=ToolAnnotations(
         title="Get Airbyte Job Details (Internal API)",
@@ -164,7 +294,8 @@ async def airbyte_get_job_details(params: GetJobDetailsInput) -> str:
 
     Uses the internal Configuration API (POST /v1/jobs/get) which
     returns much richer data than the public API: full attempt history,
-    per-stream statistics, and structured failure summaries.
+    per-stream statistics, and structured failure summaries. Works for
+    ALL job types including refresh and clear jobs.
 
     When to Use:
         - A job failed and you need to understand WHY (failure origin,
@@ -172,6 +303,8 @@ async def airbyte_get_job_details(params: GetJobDetailsInput) -> str:
         - You want per-stream record/byte counts for a specific sync.
         - You need to see how many attempts a job took and what
           happened in each one.
+        - Monitor a refresh job's progress (get the job ID from
+          airbyte_trigger_refresh or airbyte_list_jobs_internal).
 
     When NOT to Use:
         - For a quick status check, use airbyte_get_job (public API).

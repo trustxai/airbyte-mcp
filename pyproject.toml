@@ -50,7 +50,21 @@ build-backend = "hatchling.build"
 packages = ["src/airbyte_mcp"]
 
 [dependency-groups]
-dev = ["pre-commit>=4.0", "ruff>=0.11", "mypy>=1.14"]
+dev = [
+    "pre-commit>=4.0",
+    "ruff>=0.11",
+    "mypy>=1.14",
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = [
+    "live: integration tests against a real Airbyte instance (requires .env credentials)",
+    "destructive: mutating integration tests (requires AIRBYTE_TEST_ALLOW_DESTRUCTIVE=1)",
+]
 
 [tool.ruff]
 target-version = "py313"

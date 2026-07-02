@@ -1,0 +1,51 @@
+{
+  "jobs": [
+    {
+      "job": {
+        "id": 50900,
+        "configType": "sync",
+        "configId": "090bb46e-7e2d-42f0-bdec-5649806ffea4",
+        "enabledStreams": [{"name": "PURCHASE_POSTED_TRANSACTIONS"}],
+        "createdAt": 1782894600,
+        "updatedAt": 1782895826,
+        "status": "succeeded",
+        "aggregatedStats": {
+          "recordsEmitted": 2300292,
+          "bytesEmitted": 1972668492,
+          "recordsCommitted": 2300292,
+          "bytesCommitted": 1972668492
+        },
+        "streamAggregatedStats": [
+          {
+            "streamName": "PURCHASE_POSTED_TRANSACTIONS",
+            "recordsEmitted": 2300292,
+            "bytesEmitted": 1972668492,
+            "recordsCommitted": 2300292,
+            "bytesCommitted": 1972668492,
+            "wasBackfilled": false,
+            "wasResumed": true
+          }
+        ]
+      },
+      "attempts": [
+        {
+          "id": 0,
+          "status": "succeeded",
+          "bytesSynced": 1972668492,
+          "recordsSynced": 2300292,
+          "streamStats": [
+            {
+              "streamName": "PURCHASE_POSTED_TRANSACTIONS",
+              "stats": {
+                "recordsEmitted": 2300292,
+                "bytesEmitted": 1972668492,
+                "recordsCommitted": 2300292
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "totalJobCount": 197
+}

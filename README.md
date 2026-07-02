@@ -6,7 +6,7 @@ Lets any MCP-compatible client (Cursor, Claude Desktop, Claude Code, MCP Inspect
 
 ## Features
 
-- 30 tools covering workspaces, sources, destinations, connections, jobs, job logs, tags, streams, and connector definitions
+- 34 tools covering workspaces, sources, destinations, connections, jobs, refresh/clear, job logs, tags, streams, and connector definitions
 - Read and write operations for core resources (create, update, delete)
 - Job diagnostics via the internal Configuration API (self-managed): detailed failure reasons, per-stream stats, and structured logs
 - Automatic token exchange with in-memory caching and transparent 401 retry
@@ -44,7 +44,11 @@ Lets any MCP-compatible client (Cursor, Claude Desktop, Claude Code, MCP Inspect
 | `airbyte_get_job` | Get job details (status, duration, bytes/rows synced) |
 | `airbyte_trigger_sync` | Trigger a sync or reset job |
 | `airbyte_cancel_job` | Cancel a running job |
-| **Job Logs (Internal API)** | |
+| `airbyte_trigger_refresh` | Trigger a per-stream refresh (internal API, self-managed) |
+| `airbyte_trigger_clear` | Clear destination data for streams (internal API, self-managed) |
+| `airbyte_wait_for_job` | Poll until a job reaches a terminal status (internal API) |
+| **Job Logs (Internal API — self-managed only)** | |
+| `airbyte_list_jobs_internal` | List all job types including refresh and clear |
 | `airbyte_get_job_details` | Per-attempt stats, failure reasons, and stacktraces |
 | `airbyte_get_job_logs` | Structured log entries for all attempts |
 | `airbyte_get_attempt_logs` | Structured log entries for a specific attempt |
