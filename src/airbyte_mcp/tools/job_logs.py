@@ -16,6 +16,10 @@ from airbyte_mcp.client import get_client
 from airbyte_mcp.errors import handle_api_error
 from airbyte_mcp.formatters import ResponseFormat, epoch_to_human, paginated_response, to_json
 from airbyte_mcp.server import mcp
+from airbyte_mcp.tools._internal_jobs import (
+    INTERNAL_API_HINT,
+    fmt_internal_job,
+)
 from airbyte_mcp.tools._log_utils import truncate_structured_logs
 
 # ---------------------------------------------------------------------------
@@ -86,76 +90,10 @@ class GetAttemptLogsInput(BaseModel):
     )
 
 
-_INTERNAL_API_HINT = (
-    "This tool requires the Airbyte Configuration API (self-managed only). "
-    "If you are using Airbyte Cloud, this endpoint is not available."
-)
+_INTERNAL_API_HINT = INTERNAL_API_HINT
 
 # ---------------------------------------------------------------------------
-# Internal job list formatter
-# ---------------------------------------------------------------------------
-
-_CONFIG_TYPE_LABELS: dict[str, str] = {
-    "sync": "Sync",
-    "reset_connection": "Reset",
-    "refresh": "Refresh",
-    "clear": "Clear",
-    "check_connection_source": "Check Source",
-    "check_connection_destination": "Check Destination",
-    "discover_schema": "Discover Schema",
-}
-
-
-def _fmt_internal_job(job_info: dict[str, Any]) -> str:
-    """Format a job from the internal POST /jobs/list response."""
-    job = job_info.get("job", job_info)
-    config_type = job.get("configType", "?")
-    label = _CONFIG_TYPE_LABELS.get(config_type, config_type)
-    status = job.get("status", "?")
-    created = epoch_to_human(job.get("createdAt"))
-    updated = epoch_to_human(job.get("updatedAt"))
-
-    lines = [
-        f"## Job {job.get('id', '?')} — **{status}** ({label})",
-        f"- **Config type**: {config_type}",
-        f"- **Created**: {created}",
-        f"- **Updated**: {updated}",
-    ]
-
-    attempts = job_info.get("attempts", [])
-    if attempts:
-        last = attempts[-1].get("attempt", attempts[-1])
-        bytes_synced = last.get("bytesSynced")
-        records_synced = last.get("recordsSynced")
-        if bytes_synced is not None:
-            lines.append(f"- **Bytes synced**: {bytes_synced:,}")
-        if records_synced is not None:
-            lines.append(f"- **Records synced**: {records_synced:,}")
-
-        stream_stats = last.get("streamStats", [])
-        if stream_stats:
-            lines.append("- **Per-stream stats**:")
-            for ss in stream_stats[:20]:
-                name = ss.get("streamName", "?")
-                ns = ss.get("streamNamespace", "")
-                stats = ss.get("stats", {})
-                emitted = stats.get("recordsEmitted", 0)
-                committed = stats.get("recordsCommitted", 0)
-                stream_label = f"{ns}.{name}" if ns else name
-                lines.append(f"  - `{stream_label}`: {emitted:,} emitted, {committed:,} committed")
-            if len(stream_stats) > 20:
-                lines.append(f"  - ... +{len(stream_stats) - 20} more streams")
-
-    if status in ("failed", "incomplete"):
-        lines.append(
-            "- **Tip**: Use `airbyte_get_job_details` for failure reasons and `airbyte_get_job_logs` for full logs."
-        )
-
-    return "\n".join(lines) + "\n"
-
-
-# ---------------------------------------------------------------------------
-# Formatters
+# Tools
 # ---------------------------------------------------------------------------
 
 
@@ -331,7 +269,7 @@ async def airbyte_list_jobs_internal(params: ListJobsInternalInput) -> str:
             limit=params.limit,
             offset=params.offset,
             fmt=params.response_format,
-            item_formatter=_fmt_internal_job,
+            item_formatter=fmt_internal_job,
             title="Airbyte Jobs (Internal API)",
         )
     except Exception as exc:

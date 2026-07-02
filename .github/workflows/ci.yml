@@ -33,6 +33,17 @@ jobs:
       - run: uv sync --frozen --group dev
       - run: uv run mypy src/
 
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: ".python-version"
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --frozen --group dev
+      - run: uv run pytest -m "not live"
+
   smoke-test:
     runs-on: ubuntu-latest
     steps:

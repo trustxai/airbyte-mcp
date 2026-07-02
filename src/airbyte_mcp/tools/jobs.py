@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from mcp.types import ToolAnnotations
@@ -11,6 +12,13 @@ from airbyte_mcp.client import get_client
 from airbyte_mcp.errors import handle_api_error
 from airbyte_mcp.formatters import ResponseFormat, paginated_response, to_json
 from airbyte_mcp.server import mcp
+from airbyte_mcp.tools._internal_jobs import (
+    INTERNAL_API_HINT,
+    TERMINAL_JOB_STATUSES,
+    build_stream_descriptors,
+    extract_internal_job_id_status,
+    fmt_internal_job,
+)
 
 # ---------------------------------------------------------------------------
 # Input models
@@ -80,8 +88,8 @@ class TriggerSyncInput(BaseModel):
     response_format: ResponseFormat = Field(default=ResponseFormat.MARKDOWN)
 
 
-class RefreshStreamDescriptor(BaseModel):
-    """Identifies a single stream to refresh."""
+class StreamDescriptor(BaseModel):
+    """Identifies a single connection stream."""
 
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
 
@@ -100,7 +108,7 @@ class TriggerRefreshInput(BaseModel):
         min_length=1,
         description="UUID of the connection containing the streams to refresh.",
     )
-    streams: list[RefreshStreamDescriptor] = Field(
+    streams: list[StreamDescriptor] = Field(
         ...,
         min_length=1,
         description="One or more streams to refresh. Each needs at least a 'name'.",
@@ -112,6 +120,41 @@ class TriggerRefreshInput(BaseModel):
             "new data (Refresh and Retain Records); 'truncate' replaces "
             "destination data with the fresh read (Refresh and Remove Records)."
         ),
+    )
+    response_format: ResponseFormat = Field(default=ResponseFormat.MARKDOWN)
+
+
+class TriggerClearInput(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    connection_id: str = Field(
+        ...,
+        min_length=1,
+        description="UUID of the connection containing the streams to clear.",
+    )
+    streams: list[StreamDescriptor] = Field(
+        ...,
+        min_length=1,
+        description="One or more streams to clear. Each needs at least a 'name'.",
+    )
+    response_format: ResponseFormat = Field(default=ResponseFormat.MARKDOWN)
+
+
+class WaitForJobInput(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    job_id: int = Field(..., description="Numeric ID of the job to monitor.")
+    max_wait_seconds: int = Field(
+        default=300,
+        ge=1,
+        le=3600,
+        description="Maximum seconds to wait before returning a timeout message.",
+    )
+    poll_interval_seconds: int = Field(
+        default=5,
+        ge=1,
+        le=60,
+        description="Seconds between status polls.",
     )
     response_format: ResponseFormat = Field(default=ResponseFormat.MARKDOWN)
 
@@ -402,10 +445,49 @@ async def airbyte_cancel_job(params: CancelJobInput) -> str:
         return handle_api_error(exc)
 
 
-_INTERNAL_API_HINT = (
-    "This tool requires the Airbyte Configuration API (self-managed only). "
-    "If you are using Airbyte Cloud, this endpoint is not available."
-)
+_INTERNAL_API_HINT = INTERNAL_API_HINT
+
+
+def _internal_api_error_message(exc: Exception) -> str:
+    msg = handle_api_error(exc)
+    if "connect" in msg.lower() or "404" in msg or "405" in msg:
+        return f"{msg}\n\n{_INTERNAL_API_HINT}"
+    return msg
+
+
+def _fmt_triggered_job(
+    *,
+    action: str,
+    data: dict[str, Any],
+    connection_id: str,
+    stream_names: str,
+    extra_lines: list[str] | None = None,
+) -> str:
+    job_id, status = extract_internal_job_id_status(data)
+    lines = [
+        f"## {action}",
+        f"- **Job ID**: {job_id}",
+        f"- **Status**: {status}",
+        f"- **Streams**: {stream_names}",
+        f"- **Connection**: {connection_id}",
+    ]
+    if extra_lines:
+        lines.extend(extra_lines)
+    lines.append("")
+    lines.append("Use `airbyte_wait_for_job` or `airbyte_get_job_details` to monitor progress.")
+    return "\n".join(lines)
+
+
+async def _fetch_internal_job(job_id: int) -> dict[str, Any]:
+    client = get_client()
+    resp = await client.request(
+        "POST",
+        "/jobs/get",
+        json_body={"id": job_id},
+        use_internal=True,
+    )
+    data: dict[str, Any] = resp.json()
+    return data
 
 
 @mcp.tool(
@@ -472,19 +554,12 @@ async def airbyte_trigger_refresh(params: TriggerRefreshInput) -> str:
     try:
         client = get_client()
 
-        stream_descriptors = []
-        for s in params.streams:
-            descriptor: dict[str, str] = {"streamName": s.name}
-            if s.namespace is not None:
-                descriptor["streamNamespace"] = s.namespace
-            stream_descriptors.append(descriptor)
-
         refresh_mode = "Merge" if params.refresh_type.lower() == "merge" else "Truncate"
 
         body: dict[str, Any] = {
             "connectionId": params.connection_id,
             "refreshMode": refresh_mode,
-            "streams": stream_descriptors,
+            "streams": build_stream_descriptors(params.streams),
         }
         resp = await client.request(
             "POST",
@@ -497,20 +572,167 @@ async def airbyte_trigger_refresh(params: TriggerRefreshInput) -> str:
         if params.response_format == ResponseFormat.JSON:
             return to_json(data)
 
-        job_id = data.get("jobId", data.get("job", {}).get("id", "?"))
-        status = data.get("status", data.get("job", {}).get("status", "?"))
         stream_names = ", ".join(s.name for s in params.streams)
-        return (
-            f"## Refresh triggered\n"
-            f"- **Job ID**: {job_id}\n"
-            f"- **Status**: {status}\n"
-            f"- **Refresh type**: {params.refresh_type}\n"
-            f"- **Streams**: {stream_names}\n"
-            f"- **Connection**: {params.connection_id}\n\n"
-            f"Use `airbyte_get_job_details` with the job ID to monitor progress."
+        return _fmt_triggered_job(
+            action="Refresh triggered",
+            data=data,
+            connection_id=params.connection_id,
+            stream_names=stream_names,
+            extra_lines=[f"- **Refresh type**: {params.refresh_type}"],
         )
     except Exception as exc:
-        msg = handle_api_error(exc)
-        if "connect" in msg.lower() or "404" in msg or "405" in msg:
-            return f"{msg}\n\n{_INTERNAL_API_HINT}"
-        return msg
+        return _internal_api_error_message(exc)
+
+
+@mcp.tool(
+    name="airbyte_trigger_clear",
+    annotations=ToolAnnotations(
+        title="Trigger Airbyte Stream Clear (Internal API)",
+        readOnlyHint=False,
+        destructiveHint=True,
+        idempotentHint=False,
+        openWorldHint=True,
+    ),
+)
+async def airbyte_trigger_clear(params: TriggerClearInput) -> str:
+    """Clear destination data for one or more streams in a connection.
+
+    Uses the internal Configuration API (POST /connections/clear) to
+    remove synced data for the selected streams and reset their cursors.
+    Unlike a refresh, a clear does not re-read from source — run a sync
+    afterward to backfill data.
+
+    Requires a self-managed Airbyte deployment where the Configuration
+    API (/api/v1) is accessible. NOT available on Airbyte Cloud.
+
+    When to Use:
+        - Remove stale or incorrect destination data for specific streams.
+        - Prepare streams for a clean re-sync after schema or config changes.
+        - Clear affected streams after approving non-breaking schema changes.
+
+    When NOT to Use:
+        - On Airbyte Cloud (internal API not available).
+        - If you want to re-read source data without deleting first, use
+          airbyte_trigger_refresh instead.
+        - If the connection is already running a job, wait for it to finish.
+
+    Returns:
+        The created clear/reset job with its job ID and initial status.
+
+    Examples:
+        Clear a single stream:
+            params = {
+                "connection_id": "a1b2c3d4-...",
+                "streams": [{"name": "oe-trailer"}]
+            }
+        Clear multiple streams:
+            params = {
+                "connection_id": "a1b2c3d4-...",
+                "streams": [
+                    {"name": "oe-trailer"},
+                    {"name": "arinvitm", "namespace": "public"}
+                ]
+            }
+    """
+    try:
+        client = get_client()
+        body: dict[str, Any] = {
+            "connectionId": params.connection_id,
+            "streams": build_stream_descriptors(params.streams),
+        }
+        resp = await client.request(
+            "POST",
+            "/connections/clear",
+            json_body=body,
+            use_internal=True,
+        )
+        data = resp.json()
+
+        if params.response_format == ResponseFormat.JSON:
+            return to_json(data)
+
+        stream_names = ", ".join(s.name for s in params.streams)
+        return _fmt_triggered_job(
+            action="Clear triggered",
+            data=data,
+            connection_id=params.connection_id,
+            stream_names=stream_names,
+            extra_lines=["- **Note**: Run a sync after clear completes to backfill data."],
+        )
+    except Exception as exc:
+        return _internal_api_error_message(exc)
+
+
+@mcp.tool(
+    name="airbyte_wait_for_job",
+    annotations=ToolAnnotations(
+        title="Wait for Airbyte Job Completion (Internal API)",
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=True,
+    ),
+)
+async def airbyte_wait_for_job(params: WaitForJobInput) -> str:
+    """Poll an internal job until it reaches a terminal status.
+
+    Uses the internal Configuration API (POST /jobs/get) to poll job
+    status until it becomes succeeded, failed, cancelled, or incomplete,
+    or until max_wait_seconds is reached.
+
+    When to Use:
+        - After airbyte_trigger_refresh or airbyte_trigger_clear to
+          block until the job finishes.
+        - Automate workflows that need to know when a job completed.
+
+    When NOT to Use:
+        - For a one-shot status check, use airbyte_get_job_details.
+        - On Airbyte Cloud (internal API not available).
+
+    Returns:
+        Final job summary when a terminal status is reached, or a
+        timeout message if max_wait_seconds elapses first.
+
+    Examples:
+        Wait up to 10 minutes for job 12345:
+            params = { "job_id": 12345, "max_wait_seconds": 600 }
+        Poll every 10 seconds:
+            params = { "job_id": 12345, "poll_interval_seconds": 10 }
+    """
+    try:
+        elapsed = 0
+        last_data: dict[str, Any] | None = None
+
+        while elapsed <= params.max_wait_seconds:
+            last_data = await _fetch_internal_job(params.job_id)
+            status = last_data.get("job", {}).get("status", "?")
+
+            if status in TERMINAL_JOB_STATUSES:
+                if params.response_format == ResponseFormat.JSON:
+                    return to_json(last_data)
+                return fmt_internal_job(last_data)
+
+            if elapsed >= params.max_wait_seconds:
+                break
+
+            await asyncio.sleep(params.poll_interval_seconds)
+            elapsed += params.poll_interval_seconds
+
+        status = last_data.get("job", {}).get("status", "?") if last_data else "unknown"
+        if params.response_format == ResponseFormat.JSON and last_data is not None:
+            payload = {
+                "timed_out": True,
+                "job_id": params.job_id,
+                "last_status": status,
+                "elapsed_seconds": elapsed,
+                "job": last_data,
+            }
+            return to_json(payload)
+
+        return (
+            f"## Job {params.job_id} still **{status}** after {elapsed}s\n"
+            f"- Poll again with `airbyte_wait_for_job` or check "
+            f"`airbyte_get_job_details`.\n"
+        )
+    except Exception as exc:
+        return _internal_api_error_message(exc)
