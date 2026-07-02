@@ -1,6 +1,6 @@
 [project]
 name = "airbyte-mcp"
-version = "0.2.2"
+version = "0.3.0"
 description = "MCP server for the Airbyte Public API (self-managed / Cloud)."
 readme = "README.md"
 license = "Apache-2.0"
