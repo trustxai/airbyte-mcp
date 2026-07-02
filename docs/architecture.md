@@ -14,10 +14,7 @@ flowchart LR
         Inspector[MCP Inspector]
     end
 
-    subgraph Transports
-        Stdio["airbyte-mcp (stdio)"]
-        Http["airbyte-mcp-http (streamable HTTP)"]
-    end
+    Stdio["airbyte-mcp (stdio)"]
 
     subgraph AirbyteMCP["airbyte_mcp package"]
         FastMCP[FastMCP server]
@@ -30,10 +27,9 @@ flowchart LR
 
     Cursor -->|stdio| Stdio
     Claude -->|stdio| Stdio
-    Inspector -->|HTTP| Http
+    Inspector -->|stdio| Stdio
 
     Stdio --> FastMCP
-    Http --> FastMCP
     FastMCP --> Tools
     Tools --> Client
     Client --> TokenCache
@@ -74,11 +70,8 @@ src/airbyte_mcp/
 3. Subsequent requests reuse the cached token.
 4. If the token is expired (or the API returns `401`), the client automatically fetches a new one and retries the request once.
 
-## Transport Modes
+## Transport
 
-| Transport | Entry Point | Use Case |
-|---|---|---|
-| **stdio** | `airbyte-mcp` | Local dev, Cursor, Claude Desktop, Docker |
-| **streamable HTTP** | `airbyte-mcp-http` | Remote access, cloud deployment, multiple clients |
-
-Both entry points share the same FastMCP instance and tool registrations. The only difference is the transport layer.
+The server runs over **stdio** via the `airbyte-mcp` entry point (`main_stdio`),
+which is the transport used by Cursor, Claude Desktop, Claude Code, the MCP
+Inspector, and Docker. Remote HTTP transport is not supported.

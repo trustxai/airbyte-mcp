@@ -17,15 +17,5 @@ def main_stdio() -> None:
     mcp.run()
 
 
-def main_http() -> None:
-    """Entry point for streamable HTTP transport (remote / cloud)."""
-    from airbyte_mcp.config import get_settings
-
-    s = get_settings()
-    mcp.settings.host = s.http_host
-    mcp.settings.port = s.http_port
-    mcp.run(transport="streamable-http")
-
-
 if __name__ == "__main__":
     main_stdio()

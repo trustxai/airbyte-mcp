@@ -40,7 +40,6 @@ Changelog = "https://github.com/trustxai/airbyte-mcp/blob/main/CHANGELOG.md"
 
 [project.scripts]
 airbyte-mcp = "airbyte_mcp.server:main_stdio"
-airbyte-mcp-http = "airbyte_mcp.server:main_http"
 
 [build-system]
 requires = ["hatchling"]

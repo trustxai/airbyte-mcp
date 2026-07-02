@@ -82,17 +82,8 @@ uv run python scripts/list_workspaces.py
 
 ## 6. Start the MCP Server
 
-### stdio (for Cursor / Claude Desktop)
-
 ```bash
 uv run airbyte-mcp
-```
-
-### HTTP (for remote / MCP Inspector)
-
-```bash
-uv run airbyte-mcp-http
-# Server starts at http://127.0.0.1:8080/mcp
 ```
 
 ## Troubleshooting
