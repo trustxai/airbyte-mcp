@@ -35,4 +35,3 @@ Instead:
 - **Never commit `.env` files** or expose `AIRBYTE_CLIENT_ID`, `AIRBYTE_CLIENT_SECRET`, or `AIRBYTE_ACCESS_TOKEN` in issues, logs, or public repositories.
 - **Rotate credentials** if you suspect they have been compromised.
 - **Use environment variables** or a secrets manager rather than hardcoded values.
-- When running the HTTP transport, bind to `127.0.0.1` (the default) rather than `0.0.0.0` unless you have proper network controls in place.

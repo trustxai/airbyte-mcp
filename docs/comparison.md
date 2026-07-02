@@ -22,7 +22,7 @@ Airbyte ships three distinct MCP products. Only one is a direct competitor.
 | **Target environment** | Self-managed (abctl / OSS) is first-class, **and** Cloud. | Cloud-first; no supported self-managed path. |
 | **Logs** | Richer **structured self-managed diagnostics** — failure reasons, per-stream stats, per-attempt structured entries (internal Config API) — **plus** a Cloud-only full-text parity tool. | One Cloud-only full-text tool (`get_cloud_sync_logs`). |
 | **Auth** | OAuth client-credentials token exchange, or a static `AIRBYTE_ACCESS_TOKEN`. | Cloud client credentials + Google Secret Manager secret resolution; HTTP transport can use optional Keycloak OIDC. |
-| **Transports** | stdio **and** streamable-HTTP, both documented. | stdio-oriented (Cloud-first), plus a hosted remote via Agent MCP. |
+| **Transports** | stdio (local). No remote HTTP — run it next to your client. | stdio-oriented (Cloud-first), plus a hosted remote via Agent MCP. |
 | **Runtime footprint** | No connector runtime — pure API calls; no absolute-path fragility. | Runs connectors locally; needs a connector runtime and local extract targets. |
 
 ## Where we're better
@@ -34,8 +34,6 @@ Airbyte ships three distinct MCP products. Only one is a direct competitor.
   MCP does not surface for self-managed.
 - **Predictable REST surface.** A thin, focused wrapper over the documented
   Public API — easy to reason about, easy to extend, small dependency footprint.
-- **Both transports documented.** stdio *and* streamable-HTTP are covered (see
-  [architecture.md](architecture.md) and [remote.md](remote.md)).
 - **No connector-runtime fragility.** No local connector execution, no
   absolute-path/DuckDB setup to get wrong — just API calls.
 
@@ -60,4 +58,4 @@ hosted multi-tenant remote.
 For the job of **managing a self-managed Airbyte via a clean, predictable API**,
 this project is **more usable** than the official Replication MCP: a small,
 focused tool surface, first-class self-managed support, richer structured
-diagnostics, both transports documented, and no connector-runtime fragility.
+diagnostics, and no connector-runtime fragility.

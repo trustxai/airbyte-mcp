@@ -25,9 +25,6 @@ class Settings(BaseSettings):
     airbyte_request_timeout_seconds: float = 30.0
     airbyte_internal_log_timeout_seconds: float = 120.0
 
-    http_host: str = "127.0.0.1"
-    http_port: int = 8080
-
     @property
     def has_static_token(self) -> bool:
         return bool(self.airbyte_access_token)

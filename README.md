@@ -13,7 +13,7 @@ Lets any MCP-compatible client (Cursor, Claude Desktop, Claude Code, MCP Inspect
 - Automatic token exchange with in-memory caching and transparent 401 retry
 - Markdown and JSON response formats on summary tools; JSON-only for log tools
 - Pagination support (limit/offset) on all list tools
-- Two transport modes: **stdio** (local) and **streamable HTTP** (remote)
+- Runs over **stdio** (local) — works with Cursor, Claude Desktop, Claude Code, and Docker
 - Works with self-managed Airbyte (abctl) and Airbyte Cloud
 
 ## Available Tools
@@ -106,17 +106,8 @@ Edit `.env` with your `client-id` and `client-secret`. See [docs/authentication.
 
 ### 3. Run the server
 
-#### stdio (Cursor / Claude Desktop / Docker)
-
 ```bash
 uv run airbyte-mcp
-```
-
-#### Streamable HTTP (remote / MCP Inspector)
-
-```bash
-uv run airbyte-mcp-http
-# Listening on http://127.0.0.1:8080/mcp
 ```
 
 ## Run with uvx (zero-install)
@@ -126,11 +117,7 @@ clone, no virtualenv, no persistent install. The command matches the package
 name, so no `--from` is needed:
 
 ```bash
-# stdio
 uvx airbyte-mcp
-
-# streamable HTTP
-uvx airbyte-mcp-http
 ```
 
 > **Not the same as the official Airbyte replication MCP.** That one lives in the
@@ -280,66 +267,40 @@ Add to `claude_desktop_config.json`:
 }
 ```
 
-### Claude Code (HTTP)
-
-**Option A — uv**
+### Claude Code
 
 ```bash
-uv run airbyte-mcp-http &
-claude mcp add --transport http airbyte http://127.0.0.1:8080/mcp
+claude mcp add airbyte \
+  --env AIRBYTE_API_URL=http://localhost:8000/api/public/v1 \
+  --env AIRBYTE_CLIENT_ID=<your-client-id> \
+  --env AIRBYTE_CLIENT_SECRET=<your-client-secret> \
+  -- uvx airbyte-mcp
 ```
-
-**Option B — Docker**
-
-```bash
-docker build -f Dockerfile.http -t airbyte-mcp-http:latest .
-docker run -d --rm --name airbyte-mcp-http \
-  -p 8080:8080 \
-  -e AIRBYTE_API_URL=http://host.docker.internal:8000/api/public/v1 \
-  -e AIRBYTE_CLIENT_ID=<your-client-id> \
-  -e AIRBYTE_CLIENT_SECRET=<your-client-secret> \
-  airbyte-mcp-http:latest
-claude mcp add --transport http airbyte http://127.0.0.1:8080/mcp
-```
-
-> The HTTP image binds `0.0.0.0:8080` inside the container (so `-p 8080:8080`
-> works) and ships a `HEALTHCHECK` on that port; check it with `docker ps` or
-> `docker inspect --format '{{.State.Health.Status}}' airbyte-mcp-http`.
 
 ### MCP Inspector
 
-```bash
-# Start the server in HTTP mode (uv or docker — either works)
-uv run airbyte-mcp-http
-#   or: docker run --rm -p 8080:8080 --env-file .env airbyte-mcp-http:latest
+The Inspector can launch the stdio server directly:
 
-# In another terminal
-npx @modelcontextprotocol/inspector
-# Then connect to http://127.0.0.1:8080/mcp in the inspector UI
+```bash
+npx @modelcontextprotocol/inspector uvx airbyte-mcp
 ```
+
+Set `AIRBYTE_API_URL`, `AIRBYTE_CLIENT_ID`, and `AIRBYTE_CLIENT_SECRET` in the
+Inspector's environment panel (or export them in your shell first).
 
 ## Running Manually (without a client)
 
 If you just want to exercise the server from the CLI:
 
 ```bash
-# stdio (uvx — no clone)
+# uvx — no clone
 uvx airbyte-mcp
 
-# stdio (uv)
+# uv
 uv run airbyte-mcp
 
-# stdio (Docker)
+# Docker
 docker run --rm -i --env-file .env airbyte-mcp:latest
-
-# HTTP (uvx — no clone)
-uvx airbyte-mcp-http
-
-# HTTP (uv)
-uv run airbyte-mcp-http
-
-# HTTP (Docker)
-docker run --rm -p 8080:8080 --env-file .env airbyte-mcp-http:latest
 ```
 
 ## Environment Variables
@@ -353,8 +314,6 @@ docker run --rm -p 8080:8080 --env-file .env airbyte-mcp-http:latest
 | `AIRBYTE_INTERNAL_API_URL` | No | *(derived)* | Override Config API base (Cloud: `https://cloud.airbyte.com/api/v1`) |
 | `AIRBYTE_REQUEST_TIMEOUT_SECONDS` | No | `30` | Default HTTP timeout for public API calls |
 | `AIRBYTE_INTERNAL_LOG_TIMEOUT_SECONDS` | No | `120` | Timeout for internal/Cloud Config API log endpoints |
-| `HTTP_HOST` | No | `127.0.0.1` | HTTP transport bind address |
-| `HTTP_PORT` | No | `8080` | HTTP transport port |
 
 *Not required if `AIRBYTE_ACCESS_TOKEN` is provided.
 
@@ -362,7 +321,6 @@ docker run --rm -p 8080:8080 --env-file .env airbyte-mcp-http:latest
 
 - [Authentication](docs/authentication.md) — token exchange, credentials setup
 - [Architecture](docs/architecture.md) — system design, package layout, token lifecycle
-- [Remote / HTTP Security](docs/remote.md) — no-auth risk and secure deployment options (design only)
 - [Comparison vs Official MCPs](docs/comparison.md) — open-source-first positioning vs official MCPs
 - [Endpoints Checklist](docs/endpoints.md) — full Airbyte API coverage status
 - [Local Setup](docs/local-setup.md) — abctl installation walkthrough
