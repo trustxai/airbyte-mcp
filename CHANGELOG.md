@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0](https://github.com/trustxai/airbyte-mcp/compare/v0.3.0...v0.4.0) (2026-07-02)
+
+
+### Features
+
+* harden log reads, add cloud log tool, and standardize distribution ([81d9701](https://github.com/trustxai/airbyte-mcp/commit/81d9701915b9aa220de4ef63cb6a0fed369a2c48))
+* harden log reads, add cloud log tool, and standardize distribution ([05c5ff4](https://github.com/trustxai/airbyte-mcp/commit/05c5ff4153f1869b9bcc13d20f5a91bb2ded2e36))
+
 ## [0.3.0](https://github.com/trustxai/airbyte-mcp/compare/v0.2.2...v0.3.0) (2026-07-02)
 
 
